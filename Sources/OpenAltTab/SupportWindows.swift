@@ -151,6 +151,12 @@ final class PrefsWindow {
         sizePopup.target = self
         sizePopup.action = #selector(sizeChanged(_:))
 
+        let stylePopup = NSPopUpButton()
+        ["缩略图", "纯应用图标", "纯标题"].forEach { stylePopup.addItem(withTitle: $0) }
+        stylePopup.selectItem(at: settings.cardStyle.index)
+        stylePopup.target = self
+        stylePopup.action = #selector(cardStyleChanged(_:))
+
         let themePopup = NSPopUpButton()
         ["跟随系统", "浅色", "深色"].forEach { themePopup.addItem(withTitle: $0) }
         themePopup.selectItem(at: settings.theme.index)
@@ -223,6 +229,7 @@ final class PrefsWindow {
         grid.rowSpacing = 14
         grid.columnSpacing = 20
         grid.addRow(with: [label("卡片大小"), sizePopup])
+        grid.addRow(with: [label("卡片样式"), stylePopup])
         grid.addRow(with: [label("外观"), themePopup])
         grid.addRow(with: [label("显示范围"), scopePopup])
         grid.addRow(with: [label("窗口排序"), orderPopup])
@@ -258,6 +265,10 @@ final class PrefsWindow {
 
     @objc private func sizeChanged(_ sender: NSPopUpButton) {
         AppSettings.shared.cardSize = CardSize.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func cardStyleChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.cardStyle = CardStyle.allCases[sender.indexOfSelectedItem]
     }
 
     @objc private func themeChanged(_ sender: NSPopUpButton) {

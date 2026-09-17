@@ -43,6 +43,15 @@ enum PanelScreen: String, CaseIterable {
     var index: Int { PanelScreen.allCases.firstIndex(of: self)! }
 }
 
+/// 卡片内容样式（对齐上游 Pro 的 appearanceStyle，本项目免费）
+enum CardStyle: String, CaseIterable {
+    case thumbnails  // 缩略图 + 标题
+    case appIcons    // 大应用图标，无标题
+    case titles      // 仅标题条
+
+    var index: Int { CardStyle.allCases.firstIndex(of: self)! }
+}
+
 /// 窗口列表排序
 enum WindowOrder: String, CaseIterable {
     case recentlyFocused
@@ -100,6 +109,11 @@ final class AppSettings {
     var cardSize: CardSize {
         get { CardSize(rawValue: d.string(forKey: "cardSize") ?? "") ?? .medium }
         set { d.set(newValue.rawValue, forKey: "cardSize"); notify() }
+    }
+
+    var cardStyle: CardStyle {
+        get { CardStyle(rawValue: d.string(forKey: "cardStyle") ?? "") ?? .thumbnails }
+        set { d.set(newValue.rawValue, forKey: "cardStyle"); notify() }
     }
 
     var theme: Theme {

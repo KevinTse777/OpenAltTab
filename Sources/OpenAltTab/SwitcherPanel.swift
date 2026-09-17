@@ -99,7 +99,13 @@ final class SwitcherGridView: NSView {
         }
 
         let cardW = thumbSize.width + cardPadding * 2
-        let cardH = thumbSize.height + titleHeight + cardPadding * 2
+        let style = AppSettings.shared.cardStyle
+        let cardH: CGFloat
+        switch style {
+        case .thumbnails: cardH = thumbSize.height + titleHeight + cardPadding * 2
+        case .appIcons: cardH = cardW // 正方形，大图标居中
+        case .titles: cardH = titleHeight + cardPadding * 2
+        }
         let availW = max(cardW, maxWidth - inset * 2)
         let count = items.count
         var per = max(1, Int((availW + spacing) / (cardW + spacing)))
@@ -140,12 +146,23 @@ final class SwitcherGridView: NSView {
             let y = size.height - inset - searchH - CGFloat(r + 1) * drawCardH - CGFloat(r) * spacing
             let frame = CGRect(x: x0 + CGFloat(c) * (drawCardW + spacing), y: y,
                                width: drawCardW, height: drawCardH)
-            let thumb = CGRect(x: frame.minX + cardPadding * shrink,
+            let thumb: CGRect
+            let title: CGRect
+            switch style {
+            case .thumbnails:
+                thumb = CGRect(x: frame.minX + cardPadding * shrink,
                                y: frame.maxY - cardPadding * shrink - drawThumbH,
                                width: drawThumbW, height: drawThumbH)
-            let title = CGRect(x: frame.minX + cardPadding * shrink,
+                title = CGRect(x: frame.minX + cardPadding * shrink,
                                y: frame.minY + cardPadding * shrink,
                                width: frame.width - cardPadding * shrink * 2, height: drawTitleH)
+            case .appIcons:
+                thumb = frame.insetBy(dx: cardPadding * shrink, dy: cardPadding * shrink)
+                title = frame
+            case .titles:
+                thumb = frame
+                title = frame.insetBy(dx: cardPadding * shrink, dy: cardPadding * shrink)
+            }
             cards.append(Card(frame: frame, thumb: thumb, title: title))
         }
 
@@ -215,6 +232,7 @@ final class SwitcherGridView: NSView {
     }
 
     private func drawCard(_ item: WindowItem, card: Card, index: Int, selected: Bool, dark: Bool, ctx: CGContext) {
+        let style = AppSettings.shared.cardStyle
         let cardPath = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
 
         ctx.saveGState()
@@ -229,41 +247,49 @@ final class SwitcherGridView: NSView {
         cardFill.setFill()
         ctx.fill(card.frame)
 
-        // 缩略图区域（圆角裁剪）
-        let thumbPath = NSBezierPath(roundedRect: card.thumb, xRadius: 8, yRadius: 8)
-        ctx.saveGState()
-        thumbPath.addClip()
-        if let cg = item.thumbnail {
-            ctx.interpolationQuality = .high
-            let s = min(card.thumb.width / CGFloat(cg.width), card.thumb.height / CGFloat(cg.height))
-            let w = CGFloat(cg.width) * s
-            let h = CGFloat(cg.height) * s
-            ctx.draw(cg, in: CGRect(x: card.thumb.midX - w / 2, y: card.thumb.midY - h / 2,
-                                    width: w, height: h))
-        } else {
-            (dark ? NSColor.white.withAlphaComponent(0.04) : NSColor.black.withAlphaComponent(0.03)).setFill()
-            ctx.fill(card.thumb)
-            if let icon = item.app.icon {
-                let side = min(card.thumb.width, card.thumb.height) * 0.42
-                icon.draw(in: CGRect(x: card.thumb.midX - side / 2, y: card.thumb.midY - side / 2,
-                                     width: side, height: side))
+        // 内容区：缩略图 / 纯大图标 / 无（纯标题）
+        if style == .thumbnails {
+            let thumbPath = NSBezierPath(roundedRect: card.thumb, xRadius: 8, yRadius: 8)
+            ctx.saveGState()
+            thumbPath.addClip()
+            if let cg = item.thumbnail {
+                ctx.interpolationQuality = .high
+                let s = min(card.thumb.width / CGFloat(cg.width), card.thumb.height / CGFloat(cg.height))
+                let w = CGFloat(cg.width) * s
+                let h = CGFloat(cg.height) * s
+                ctx.draw(cg, in: CGRect(x: card.thumb.midX - w / 2, y: card.thumb.midY - h / 2,
+                                        width: w, height: h))
+            } else {
+                (dark ? NSColor.white.withAlphaComponent(0.04) : NSColor.black.withAlphaComponent(0.03)).setFill()
+                ctx.fill(card.thumb)
+                if let icon = item.app.icon {
+                    let side = min(card.thumb.width, card.thumb.height) * 0.42
+                    icon.draw(in: CGRect(x: card.thumb.midX - side / 2, y: card.thumb.midY - side / 2,
+                                         width: side, height: side))
+                }
             }
+            ctx.restoreGState()
+        } else if style == .appIcons, let icon = item.app.icon {
+            let side = min(card.thumb.width, card.thumb.height) * 0.62
+            icon.draw(in: CGRect(x: card.thumb.midX - side / 2, y: card.thumb.midY - side / 2,
+                                 width: side, height: side))
         }
-        ctx.restoreGState()
 
         // 状态角标：隐藏 ⊘ / 全屏 ↗↙ / 最小化 −（对齐上游 TileStatusIcons）
-        var chipX = card.thumb.maxX - 24
+        let anchor = style == .thumbnails ? card.thumb : card.frame
+        var chipX = anchor.maxX - 24
         let chips: [(Bool, String)] = [
             (item.appHidden, "circle.slash"),
             (item.isFullscreen, "arrow.down.right.and.arrow.up.left"),
             (item.isMinimized, "minus.circle"),
         ]
         for (flag, symbol) in chips where flag {
-            drawStateChip(symbol, corner: NSPoint(x: chipX, y: card.thumb.maxY - 24), dark: dark)
+            drawStateChip(symbol, corner: NSPoint(x: chipX, y: anchor.maxY - 24), dark: dark)
             chipX -= 22
         }
 
-        // 标题条：应用图标 + "应用名 — 窗口标题"
+        // 标题条：应用图标 + "应用名 — 窗口标题"（纯图标样式不显示）
+        if style != .appIcons {
         let iconSide = AppSettings.shared.iconSize.side
         let iconRect = CGRect(x: card.title.minX + 2, y: card.title.midY - iconSide / 2,
                               width: iconSide, height: iconSide)
@@ -300,6 +326,7 @@ final class SwitcherGridView: NSView {
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: ps,
         ])
+        }
 
         // 选中描边
         if selected {
