@@ -196,6 +196,24 @@ final class SwitcherGridView: NSView {
         }
     }
 
+    /// 缩略图角落的状态徽章：小圆角底 + 着色 SF Symbol
+    private func drawStateChip(_ symbol: String, corner: NSPoint, dark: Bool) {
+        let side = CGFloat(18)
+        let rect = CGRect(origin: corner, size: CGSize(width: side, height: side))
+        (dark ? NSColor.black.withAlphaComponent(0.55) : NSColor.white.withAlphaComponent(0.75)).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
+        guard var img = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) else { return }
+        img = img.withSymbolConfiguration(.init(pointSize: 10, weight: .medium)) ?? img
+        let tint: NSColor = dark ? .white : .black
+        let inner = rect.insetBy(dx: 3.5, dy: 3.5)
+        let tinted = NSImage(size: inner.size, flipped: false) { _ in
+            tint.set()
+            img.draw(in: inner)
+            return true
+        }
+        tinted.draw(in: inner)
+    }
+
     private func drawCard(_ item: WindowItem, card: Card, index: Int, selected: Bool, dark: Bool, ctx: CGContext) {
         let cardPath = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
 
@@ -232,6 +250,18 @@ final class SwitcherGridView: NSView {
             }
         }
         ctx.restoreGState()
+
+        // 状态角标：隐藏 ⊘ / 全屏 ↗↙ / 最小化 −（对齐上游 TileStatusIcons）
+        var chipX = card.thumb.maxX - 24
+        let chips: [(Bool, String)] = [
+            (item.appHidden, "circle.slash"),
+            (item.isFullscreen, "arrow.down.right.and.arrow.up.left"),
+            (item.isMinimized, "minus.circle"),
+        ]
+        for (flag, symbol) in chips where flag {
+            drawStateChip(symbol, corner: NSPoint(x: chipX, y: card.thumb.maxY - 24), dark: dark)
+            chipX -= 22
+        }
 
         // 标题条：应用图标 + "应用名 — 窗口标题"
         let iconSide = AppSettings.shared.iconSize.side
