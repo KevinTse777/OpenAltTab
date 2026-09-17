@@ -4,9 +4,9 @@
 
 ## 项目是什么
 
-macOS 的 Windows 风格窗口切换器（参考 GitHub 的 AltTab / alt-tab.xyz，免费无付费墙自研实现）。
+macOS 的 Windows 风格窗口切换器（参考 GitHub 的 https://github.com/lwouis/alt-tab-macos，免费无付费墙自研实现）。
 按住 **⌥Tab** 弹出全部窗口缩略图，松开 ⌥ 切换。用户环境：**macOS 26.6 (Tahoe) / Apple Silicon / Xcode Swift 6.2**。
-用户核心诉求：尽量完整实现 AltTab 的功能；**迭代尽量不需要人工介入**（权限流程尽量自动化）。
+用户核心诉求：尽量完整实现 AltTab 的功能；**迭代尽量不需要人工介入**（流程尽量自动化）。
 
 ## 构建与调试
 
