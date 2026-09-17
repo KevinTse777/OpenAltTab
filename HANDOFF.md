@@ -40,16 +40,27 @@ open OpenAltTab.app
 5. **引号钩子**：环境里有格式化钩子会把源码直引号改成中文弯引号（“”），导致 `unicode curly quote` 编译错误。修法：`perl -i -pe 's/\xe2\x80\x9c/"/g; s/\xe2\x80\x9d/"/g' Sources/OpenAltTab/*.swift` 然后立即编译。
 6. 面板打开期间事件 tap 吞掉全部按键是**有意设计**（防止误输入后台窗口），放行阀门必须保留。
 
-## 待办（按用户最新反馈排序）
+## 待办
 
-1. 【bug】访达 2 个窗口显示成 3 个（多出的图标是访达的桌面"窗口"）。
-   修法：`WindowEnumerator.describe()` 中 (a) subrole 过滤加 `"AXDesktop"`；(b) 幽灵窗口规则：`hasCGID && !minimized && cgFrames[cgID] == nil` 时丢弃——真实用户窗口必然在 CGWindowList layer 0 里（最小化和其他 Space 也在）。
-2. 【bug】重新注册逻辑不正确：当前按钮无条件 `reset+request`，会把有效授权也清掉。改成按需：仅 `!accessibilityGranted` 时 `promptAccessibilityRegistration()`；仅 `!screenRecordingGranted` 时 `resetScreenRecordingRegistration()+requestScreenRecording()`；只打开缺失项对应的设置面板。
-3. 【feat】启动时自动触发注册（用户不必找按钮）：`AppDelegate.showPermissionFlow()` 里加 `autoRegisterDone` 标记，首次自动执行上面的按需注册，系统弹窗自动出现。
-4. 【feat】搜索模式：面板打开时按 `/` 进入；用 `CGEventKeyboardGetUnicodeString` 取输入追加查询；Backspace（键码 51）删除、空则退出；Enter 提交、Esc 退出搜索；Tab/方向键仍循环。数据侧 `allItems`/`items`（过滤后）分离；`SwitcherGridView.update` 增加 `searchLine: String?` 参数（顶部 30pt 显示"搜索: x n/m"，总高相应增加）；`scheduleThumbnails` 的完成回调改为 `item.thumbnail = image`（类引用直接赋值，避免过滤后索引错位）。
-5. 【feat】面板出现位置偏好：目标窗口所在屏幕 / 鼠标所在屏幕（AppSettings + PrefsWindow + `targetScreen()`）。
-6. 【feat-parity】对照 alt-tab.xyz 补齐：应用图标大小偏好、标题字体大小、多行上限、应用多窗口角标、悬停高亮等。
-7. 【chore】版本号升 1.1.0（`scripts/make_app.sh` 的 Info.plist + About 面板改为读 `CFBundleShortVersionString`）。
+> 2026-09-17：原 7 项待办已全部完成（见下方"已完成 1.1.0"，提交 804f17c…cbd538d）。**尚未做真机人工测试**——用户明确说测试可以后面再做；下次会话可先实测再修问题。
+
+1. 【test】真机验证 1.1.0：访达窗口数、搜索（/ 输入、⌥ 组合键字符是否正常）、多屏偏好、行数上限/角标/悬停、启动自动权限弹窗。
+2. 【known-risk】搜索取字符用的是"副本清掉 ⌘⌃⌥ 再取 Unicode"（Keys.swift `SearchInput`），个别布局/死键可能取不到字符；`event.copy()` 在 App 未激活时悬停 mouseMoved 是否送达也未验证。
+3. 【feat-parity】继续对照 alt-tab.xyz 补齐（主题皮肤、鼠标滚轮循环、隐藏/最小化窗口过滤偏好等）。
+
+## 已完成 1.1.0（提交记录）
+
+- fix: 窗口枚举过滤访达桌面"窗口"（AXDesktop 子角色）与幽灵窗口（AX 有 CGID 但 CGWindowList layer0 查无即丢弃）
+- fix: 权限重新注册按需执行（只处理缺失项，只开对应设置面板）
+- feat: 启动自动执行按需权限注册（`autoRegisterDone` 标记防重复 reset）
+- feat: 面板内搜索模式（/ 进入；副本去 ⌘⌃⌥ 后取字符；退格删字、空则退出；Enter 提交、Esc 退出搜索；Tab/方向键仍循环；`allItems`/`items` 分离；截图回调按对象引用赋值避免过滤后索引错位）
+- feat: 面板出现屏幕偏好（目标窗口所在屏幕 / 鼠标所在屏幕）
+- feat: 外观偏好（图标大小、标题字号、最大行数 1–5 行自动缩卡片、同应用多窗口角标、悬停选中）
+- chore: 版本 1.1.0；关于面板读 `CFBundleShortVersionString`
+
+## 迁移注意（已踩坑）
+
+- 旧 `.build/` 缓存带着旧绝对路径（`~/.zcode/workspace/default/...`），迁移后 release 构建报 `PCH was compiled with module cache path ...` / `missing required module 'SwiftShims'`——**删掉 `.build` 重跑即可**（2026-09-17 已处理）。
 
 ## 约定
 
