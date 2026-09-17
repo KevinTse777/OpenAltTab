@@ -121,7 +121,8 @@ enum WindowEnumerator {
                                  axWindow: AXUIElement, settings: AppSettings,
                                  cgFrames: [CGWindowID: CGRect]) -> WindowItem? {
         if let subrole = axString(axWindow, kAXSubroleAttribute),
-           subrole == kAXSystemDialogSubrole || subrole == kAXSystemFloatingWindowSubrole {
+           subrole == kAXSystemDialogSubrole || subrole == kAXSystemFloatingWindowSubrole
+           || subrole == "AXDesktop" {
             return nil
         }
         AXUIElementSetMessagingTimeout(axWindow, 0.35)
@@ -135,6 +136,10 @@ enum WindowEnumerator {
 
         var cgID: CGWindowID = 0
         let hasCGID = _AXUIElementGetWindow(axWindow, &cgID) == .success
+
+        // 幽灵窗口规则：AX 报告了 CG 编号但 CGWindowList layer 0 里查无此窗 → 不是真实可选窗口。
+        // 真实用户窗口必然在 layer 0（最小化和其他 Space 的窗口也在）；访达桌面等系统窗口会在这里漏馅
+        if hasCGID && !minimized && cgFrames[cgID] == nil { return nil }
 
         let screenFrame: CGRect? = {
             guard let p = pos, let s = size, s.width > 0, s.height > 0 else { return nil }
