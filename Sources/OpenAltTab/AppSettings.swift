@@ -43,6 +43,36 @@ enum PanelScreen: String, CaseIterable {
     var index: Int { PanelScreen.allCases.firstIndex(of: self)! }
 }
 
+/// 标题栏应用图标边长（pt）
+enum IconSize: String, CaseIterable {
+    case small, medium, large
+
+    var side: CGFloat {
+        switch self {
+        case .small: return 16
+        case .medium: return 20
+        case .large: return 26
+        }
+    }
+
+    var index: Int { IconSize.allCases.firstIndex(of: self)! }
+}
+
+/// 窗口标题字号（pt）
+enum TitleFontSize: String, CaseIterable {
+    case small, medium, large
+
+    var size: CGFloat {
+        switch self {
+        case .small: return 11
+        case .medium: return 12.5
+        case .large: return 14
+        }
+    }
+
+    var index: Int { TitleFontSize.allCases.firstIndex(of: self)! }
+}
+
 final class AppSettings {
     static let shared = AppSettings()
     static let changedNotification = Notification.Name("OpenAltTabSettingsChanged")
@@ -68,6 +98,22 @@ final class AppSettings {
     var panelScreen: PanelScreen {
         get { PanelScreen(rawValue: d.string(forKey: "panelScreen") ?? "") ?? .targetWindow }
         set { d.set(newValue.rawValue, forKey: "panelScreen"); notify() }
+    }
+
+    var iconSize: IconSize {
+        get { IconSize(rawValue: d.string(forKey: "iconSize") ?? "") ?? .medium }
+        set { d.set(newValue.rawValue, forKey: "iconSize"); notify() }
+    }
+
+    var titleFontSize: TitleFontSize {
+        get { TitleFontSize(rawValue: d.string(forKey: "titleFontSize") ?? "") ?? .medium }
+        set { d.set(newValue.rawValue, forKey: "titleFontSize"); notify() }
+    }
+
+    /// 网格最大行数；0 = 自动（按面板宽度自然排布）
+    var maxRows: Int {
+        get { d.object(forKey: "maxRows") == nil ? 0 : d.integer(forKey: "maxRows") }
+        set { d.set(newValue, forKey: "maxRows"); notify() }
     }
 
     var showMinimized: Bool {

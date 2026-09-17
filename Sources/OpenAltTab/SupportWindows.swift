@@ -169,6 +169,24 @@ final class PrefsWindow {
         screenPopup.target = self
         screenPopup.action = #selector(panelScreenChanged(_:))
 
+        let iconPopup = NSPopUpButton()
+        ["小", "中", "大"].forEach { iconPopup.addItem(withTitle: $0) }
+        iconPopup.selectItem(at: settings.iconSize.index)
+        iconPopup.target = self
+        iconPopup.action = #selector(iconSizeChanged(_:))
+
+        let fontPopup = NSPopUpButton()
+        ["小", "中", "大"].forEach { fontPopup.addItem(withTitle: $0) }
+        fontPopup.selectItem(at: settings.titleFontSize.index)
+        fontPopup.target = self
+        fontPopup.action = #selector(titleFontChanged(_:))
+
+        let rowsPopup = NSPopUpButton()
+        ["自动", "1 行", "2 行", "3 行", "4 行", "5 行"].forEach { rowsPopup.addItem(withTitle: $0) }
+        rowsPopup.selectItem(at: min(settings.maxRows, rowsPopup.itemArray.count - 1))
+        rowsPopup.target = self
+        rowsPopup.action = #selector(maxRowsChanged(_:))
+
         let minCheck = NSButton(checkboxWithTitle: "显示已最小化的窗口", target: self, action: #selector(minChanged(_:)))
         minCheck.state = settings.showMinimized ? .on : .off
 
@@ -188,6 +206,9 @@ final class PrefsWindow {
         grid.addRow(with: [label("外观"), themePopup])
         grid.addRow(with: [label("显示范围"), scopePopup])
         grid.addRow(with: [label("面板位置"), screenPopup])
+        grid.addRow(with: [label("图标大小"), iconPopup])
+        grid.addRow(with: [label("标题字号"), fontPopup])
+        grid.addRow(with: [label("最大行数"), rowsPopup])
         grid.addRow(with: [label("最小化"), minCheck])
         grid.addRow(with: [label("快捷键"), shortcuts])
         grid.column(at: 0).xPlacement = .trailing
@@ -196,6 +217,7 @@ final class PrefsWindow {
         stack.orientation = .vertical
         stack.edgeInsets = NSEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
         win.contentView = stack
+        win.setContentSize(stack.fittingSize)
         win.center()
     }
 
@@ -224,6 +246,19 @@ final class PrefsWindow {
 
     @objc private func panelScreenChanged(_ sender: NSPopUpButton) {
         AppSettings.shared.panelScreen = PanelScreen.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func iconSizeChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.iconSize = IconSize.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func titleFontChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.titleFontSize = TitleFontSize.allCases[sender.indexOfSelectedItem]
+    }
+
+    /// 下标 0 = 自动，1…5 直接作为行数
+    @objc private func maxRowsChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.maxRows = sender.indexOfSelectedItem
     }
 
     @objc private func minChanged(_ sender: NSButton) {
