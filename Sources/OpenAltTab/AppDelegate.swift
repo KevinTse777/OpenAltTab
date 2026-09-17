@@ -77,6 +77,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - CLI（URL scheme：open "openalttab://动作"）
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls { handleCLI(url: url) }
+    }
+
+    private func handleCLI(url: URL) {
+        let host = (url.host ?? "").lowercased()
+        let arg = url.pathComponents.count > 1 ? url.pathComponents[1] : nil
+        switch host {
+        case "next":
+            coordinator.activateRelative(1)
+        case "previous":
+            coordinator.activateRelative(-1)
+        case "show":
+            coordinator.showOverlay()
+        case "hide":
+            coordinator.cancelOverlay()
+        case "list":
+            coordinator.dumpWindowList()
+        case "activate":
+            if let arg, let n = Int(arg) {
+                coordinator.activate(index: n)
+            } else {
+                NSSound.beep()
+            }
+        default:
+            NSSound.beep()
+        }
+    }
+
     // MARK: - 菜单栏
 
     private func setupStatusItem() {

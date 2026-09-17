@@ -35,6 +35,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>com.openalttab.macos.cli</string>
+            <key>CFBundleURLSchemes</key>
+            <array><string>openalttab</string></array>
+        </dict>
+    </array>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSHumanReadableCopyright</key><string>MIT License</string>
 </dict>

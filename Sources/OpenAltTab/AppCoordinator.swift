@@ -602,6 +602,64 @@ final class AppCoordinator {
             }
         }
     }
+
+    // MARK: - CLI（URL scheme 驱动的编程接口）
+
+    /// 相对前台窗口切换：+1 下一个、-1 上一个（不弹面板，对齐上游 CLI next/previous）
+    func activateRelative(_ delta: Int) {
+        workQueue.async { [weak self] in
+            guard let self else { return }
+            let items = WindowEnumerator.fetch(settings: AppSettings.shared)
+            DispatchQueue.main.async { self.commitRelative(items: items, delta: delta) }
+        }
+    }
+
+    private func commitRelative(items: [WindowItem], delta: Int) {
+        guard !items.isEmpty else { NSSound.beep(); return }
+        let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        if let i = items.firstIndex(where: { $0.app.processIdentifier == frontPID }) {
+            let next = ((i + delta) % items.count + items.count) % items.count
+            commitNow(items[next])
+        } else {
+            commitNow(items[delta > 0 ? 0 : items.count - 1])
+        }
+    }
+
+    /// 直接激活列表中第 index 个窗口
+    func activate(index: Int) {
+        workQueue.async { [weak self] in
+            guard let self else { return }
+            let items = WindowEnumerator.fetch(settings: AppSettings.shared)
+            DispatchQueue.main.async {
+                guard items.indices.contains(index) else { NSSound.beep(); return }
+                self.commitNow(items[index])
+            }
+        }
+    }
+
+    /// 强制弹出面板（外部驱动时修饰键并未按下，视作按住以保持面板）
+    func showOverlay() {
+        guard !visible, !opening, Permissions.accessibilityGranted else { return }
+        lastOptionHeld = true
+        triggerOverlay(reverse: false)
+    }
+
+    /// 关闭面板（CLI hide）
+    func cancelOverlay() {
+        cancel()
+    }
+
+    /// 把当前窗口清单写入 /tmp/openalttab_windows.txt（CLI list）
+    func dumpWindowList() {
+        workQueue.async {
+            let items = WindowEnumerator.fetch(settings: AppSettings.shared)
+            let lines = items.enumerated().map { i, it in
+                "\(i)\t\(it.appName)\t\(it.displayTitle)\(it.isWindowless ? "\t[无窗口]" : "")"
+            }
+            try? lines.joined(separator: "\n").write(
+                toFile: "/tmp/openalttab_windows.txt", atomically: true, encoding: .utf8)
+        }
+    }
 }
 
 /// workQueue 自延迟：全局函数是为了在闭包里不用捕获 coordinator
