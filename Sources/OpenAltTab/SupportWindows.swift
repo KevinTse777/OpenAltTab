@@ -190,6 +190,16 @@ final class PrefsWindow {
         let minCheck = NSButton(checkboxWithTitle: "显示已最小化的窗口", target: self, action: #selector(minChanged(_:)))
         minCheck.state = settings.showMinimized ? .on : .off
 
+        let releasePopup = NSPopUpButton()
+        ["立即切换", "保持面板（回车确认）", "进入搜索"].forEach { releasePopup.addItem(withTitle: $0) }
+        releasePopup.selectItem(at: settings.releaseAction.index)
+        releasePopup.target = self
+        releasePopup.action = #selector(releaseActionChanged(_:))
+
+        let ctrlTabCheck = NSButton(checkboxWithTitle: "启用 ^Tab 第二组快捷键（Shift+^Tab 反向循环）",
+                                    target: self, action: #selector(ctrlTabChanged(_:)))
+        ctrlTabCheck.state = settings.enableCtrlTab ? .on : .off
+
         let shortcuts = NSTextField(wrappingLabelWithString: """
         ⌥ Tab 按住打开切换器并循环，松开 ⌥ 确认切换
         Tab / Shift+Tab / ← → ↑ ↓ 选择窗口　　数字键 1–9 直选
@@ -210,6 +220,8 @@ final class PrefsWindow {
         grid.addRow(with: [label("标题字号"), fontPopup])
         grid.addRow(with: [label("最大行数"), rowsPopup])
         grid.addRow(with: [label("最小化"), minCheck])
+        grid.addRow(with: [label("松开 ⌥ 时"), releasePopup])
+        grid.addRow(with: [label("第二快捷键"), ctrlTabCheck])
         grid.addRow(with: [label("快捷键"), shortcuts])
         grid.column(at: 0).xPlacement = .trailing
 
@@ -263,5 +275,13 @@ final class PrefsWindow {
 
     @objc private func minChanged(_ sender: NSButton) {
         AppSettings.shared.showMinimized = sender.state == .on
+    }
+
+    @objc private func releaseActionChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.releaseAction = ReleaseAction.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func ctrlTabChanged(_ sender: NSButton) {
+        AppSettings.shared.enableCtrlTab = sender.state == .on
     }
 }

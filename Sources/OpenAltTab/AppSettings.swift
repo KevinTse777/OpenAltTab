@@ -43,6 +43,15 @@ enum PanelScreen: String, CaseIterable {
     var index: Int { PanelScreen.allCases.firstIndex(of: self)! }
 }
 
+/// 松开触发键（⌥ 或 ^）的行为
+enum ReleaseAction: String, CaseIterable {
+    case focus   // 立即切换（经典 ⌥Tab 体验）
+    case hold    // 保持面板：回车确认、Esc 取消
+    case search  // 进入搜索模式
+
+    var index: Int { ReleaseAction.allCases.firstIndex(of: self)! }
+}
+
 /// 标题栏应用图标边长（pt）
 enum IconSize: String, CaseIterable {
     case small, medium, large
@@ -114,6 +123,18 @@ final class AppSettings {
     var maxRows: Int {
         get { d.object(forKey: "maxRows") == nil ? 0 : d.integer(forKey: "maxRows") }
         set { d.set(newValue, forKey: "maxRows"); notify() }
+    }
+
+    /// 松开触发键的行为
+    var releaseAction: ReleaseAction {
+        get { ReleaseAction(rawValue: d.string(forKey: "releaseAction") ?? "") ?? .focus }
+        set { d.set(newValue.rawValue, forKey: "releaseAction"); notify() }
+    }
+
+    /// 第二组快捷键 ^Tab（Shift+^Tab 反向；⌘Tab 永远让给系统切换器）
+    var enableCtrlTab: Bool {
+        get { d.object(forKey: "enableCtrlTab") == nil ? false : d.bool(forKey: "enableCtrlTab") }
+        set { d.set(newValue, forKey: "enableCtrlTab"); notify() }
     }
 
     var showMinimized: Bool {

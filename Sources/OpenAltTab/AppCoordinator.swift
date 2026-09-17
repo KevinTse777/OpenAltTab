@@ -22,6 +22,10 @@ final class AppCoordinator {
     private var pendingCycles = 0
     /// 最近一次看到的 ⌥ 按键状态
     private var lastOptionHeld = false
+    /// 最近一次看到的 ⌃ 按键状态（^Tab 触发组用）
+    private var lastControlHeld = false
+    /// 当前面板由哪组快捷键触发：false = ⌥Tab，true = ^Tab（决定松开哪个键时执行松开行为）
+    private var triggeredByCtrlTab = false
     /// 搜索模式（/ 进入）：字母数字追加查询，过滤 items
     private var searchMode = false
     private var query = ""
@@ -85,12 +89,25 @@ final class AppCoordinator {
         let hasShift = flags.contains(.maskShift)
         if type == .keyDown || type == .flagsChanged {
             lastOptionHeld = hasOption
+            lastControlHeld = hasControl
         }
 
         switch type {
         case .flagsChanged:
-            // 松开 Option 键 = 确认切换
-            if visible && !hasOption { commit() }
+            // 松开触发键 = 执行松开行为（立即切换 / 保持面板 / 进入搜索）
+            if visible {
+                let released = triggeredByCtrlTab ? !hasControl : !hasOption
+                if released {
+                    switch AppSettings.shared.releaseAction {
+                    case .focus:
+                        commit()
+                    case .hold:
+                        break // 保持面板，等回车/Esc/导航键
+                    case .search:
+                        if !searchMode { enterSearch() }
+                    }
+                }
+            }
             return Unmanaged.passUnretained(event)
 
         case .keyDown:
@@ -99,9 +116,14 @@ final class AppCoordinator {
                                             hasOption: hasOption, hasCommand: hasCommand,
                                             hasShift: hasShift)
             }
-            if code == Key.tab && hasOption && !hasCommand && !hasControl {
-                triggerOverlay(reverse: hasShift)
-                return nil // 吞掉触发键，避免系统"叮"声
+            if code == Key.tab && !hasCommand {
+                let useOption = hasOption
+                let useControl = !hasOption && hasControl && AppSettings.shared.enableCtrlTab
+                if useOption || useControl {
+                    triggeredByCtrlTab = useControl
+                    triggerOverlay(reverse: hasShift)
+                    return nil // 吞掉触发键，避免系统"叮"声
+                }
             }
 
         case .keyUp:
@@ -163,19 +185,39 @@ final class AppCoordinator {
             return nil
         }
 
-        // ⌥ 已松开：只有导航/取消仍被处理；其余按键放行并关闭面板，
+        // 触发键已松开。松开行为为"保持面板/进入搜索"时（sticky），导航、回车继续可用，
+        // 搜索模式下可打印字符进查询；其余按键放行并关闭面板，
         // 保证任何异常状态下都不会吞掉用户正在输入的内容
+        let sticky = AppSettings.shared.releaseAction != .focus
         switch code {
         case Key.tab: cycle(hasShift ? -1 : 1)
         case Key.right: cycle(1)
         case Key.left: cycle(-1)
         case Key.down: cycle(panel.grid.perRow)
         case Key.up: cycle(-panel.grid.perRow)
+        case Key.return, Key.keypadEnter:
+            if sticky { commit() } else { cancel(); return Unmanaged.passUnretained(event) }
         case Key.escape:
-            cancel()
+            if sticky && searchMode {
+                exitSearch()
+            } else {
+                cancel()
+            }
+        case Key.backspace:
+            if sticky && searchMode {
+                if query.isEmpty { exitSearch() } else { query.removeLast(); applyFilter() }
+            } else {
+                cancel()
+                return Unmanaged.passUnretained(event)
+            }
         default:
-            cancel()
-            return Unmanaged.passUnretained(event)
+            if sticky && searchMode, let ch = SearchInput.character(from: event) {
+                query += ch
+                applyFilter()
+            } else {
+                cancel()
+                return Unmanaged.passUnretained(event)
+            }
         }
         return nil
     }
@@ -255,7 +297,8 @@ final class AppCoordinator {
         captureFrontWindowNow(items: allItems)
 
         // ⌥ 已经松开（快速轻点 ⌥Tab）：不弹面板，直接切换
-        if !lastOptionHeld {
+        let triggerStillHeld = triggeredByCtrlTab ? lastControlHeld : lastOptionHeld
+        if !triggerStillHeld {
             commitNow(allItems[selection])
             return
         }
@@ -387,6 +430,7 @@ final class AppCoordinator {
         guard visible else { return }
         visible = false
         pendingCycles = 0
+        triggeredByCtrlTab = false
         panel.grid.generation += 1 // 丢弃仍在路上的截图回调
         panel.dismissPanel()
     }
