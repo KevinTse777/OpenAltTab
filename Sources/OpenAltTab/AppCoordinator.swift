@@ -134,8 +134,9 @@ final class AppCoordinator {
             case Key.up: cycle(-panel.grid.perRow)
             case Key.return, Key.keypadEnter, Key.space: commit()
             case Key.slash: enterSearch()
-            case Key.h: hideApp()
-            case Key.m: minimizeWindow()
+            case Key.h: hideShowApp()
+            case Key.f: toggleFullscreen()
+            case Key.m: minDeminWindow()
             case Key.w: closeWindow()
             case Key.q: quitApp()
             default:
@@ -411,10 +412,13 @@ final class AppCoordinator {
         return items[selection]
     }
 
-    private func hideApp() {
+    /// 切换语义（对齐 AltTab）：应用隐藏中则恢复显示，否则隐藏
+    private func hideShowApp() {
         guard let item = selectedItem() else { return }
         dismiss()
-        DispatchQueue.main.async { item.app.hide() }
+        DispatchQueue.main.async {
+            item.app.isHidden ? item.app.unhide() : item.app.hide()
+        }
     }
 
     private func quitApp() {
@@ -423,12 +427,33 @@ final class AppCoordinator {
         DispatchQueue.main.async { item.app.terminate() }
     }
 
-    private func minimizeWindow() {
+    /// 切换语义：最小化↔还原。全屏窗口先退全屏（动画约 1s），再补最小化
+    private func minDeminWindow() {
         guard let item = selectedItem() else { return }
         dismiss()
         workQueue.async {
-            AXUIElementSetAttributeValue(item.axWindow, kAXMinimizedAttribute as CFString,
-                                         kCFBooleanTrue as CFTypeRef)
+            if item.isFullscreen {
+                AXUIElementSetAttributeValue(item.axWindow, "AXFullScreen" as CFString,
+                                             kCFBooleanFalse as CFTypeRef)
+                // 全屏退场动画没结束前 AX 会忽略 minimize，等 1 秒再发
+                workQueueAfter(1.0) {
+                    AXUIElementSetAttributeValue(item.axWindow, kAXMinimizedAttribute as CFString,
+                                                 kCFBooleanTrue as CFTypeRef)
+                }
+            } else {
+                let flag: CFTypeRef = item.isMinimized ? kCFBooleanFalse : kCFBooleanTrue
+                AXUIElementSetAttributeValue(item.axWindow, kAXMinimizedAttribute as CFString, flag)
+            }
+        }
+    }
+
+    /// 全屏↔还原。AX 属性写入对不响应"AXFullScreen"的应用无效（保持原状态）
+    private func toggleFullscreen() {
+        guard let item = selectedItem() else { return }
+        dismiss()
+        workQueue.async {
+            AXUIElementSetAttributeValue(item.axWindow, "AXFullScreen" as CFString,
+                                         (item.isFullscreen ? kCFBooleanFalse : kCFBooleanTrue) as CFTypeRef)
         }
     }
 
@@ -436,10 +461,27 @@ final class AppCoordinator {
         guard let item = selectedItem() else { return }
         dismiss()
         workQueue.async {
-            var v: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(item.axWindow, kAXCloseButtonAttribute as CFString, &v) == .success,
-                  let cf = v, CFGetTypeID(cf) == AXUIElementGetTypeID() else { return }
-            AXUIElementPerformAction(unsafeDowncast(cf, to: AXUIElement.self), kAXPressAction as CFString)
+            func pressClose() {
+                var v: CFTypeRef?
+                guard AXUIElementCopyAttributeValue(item.axWindow, kAXCloseButtonAttribute as CFString, &v) == .success,
+                      let cf = v, CFGetTypeID(cf) == AXUIElementGetTypeID() else { return }
+                AXUIElementPerformAction(unsafeDowncast(cf, to: AXUIElement.self), kAXPressAction as CFString)
+            }
+            if item.isFullscreen {
+                // 全屏下点关闭按钮可能无效：先退全屏，动画结束后再按
+                AXUIElementSetAttributeValue(item.axWindow, "AXFullScreen" as CFString,
+                                             kCFBooleanFalse as CFTypeRef)
+                workQueueAfter(1.0, pressClose)
+            } else {
+                pressClose()
+            }
         }
+    }
+}
+
+/// workQueue 自延迟：全局函数是为了在闭包里不用捕获 coordinator
+private func workQueueAfter(_ seconds: TimeInterval, _ block: @escaping () -> Void) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+        DispatchQueue.global(qos: .userInitiated).async(execute: block)
     }
 }

@@ -14,6 +14,7 @@ enum Key {
     static let down: Int64 = 125
     static let up: Int64 = 126
     static let h: Int64 = 4
+    static let f: Int64 = 3
     static let m: Int64 = 46
     static let q: Int64 = 12
     static let w: Int64 = 13

@@ -12,13 +12,17 @@ final class WindowItem {
     let cgFrame: CGRect?
     var title: String
     var isMinimized: Bool
+    /// 枚举瞬间窗口是否处于全屏（AX "AXFullScreen" 属性；全屏窗口独占一个 Space）
+    var isFullscreen: Bool
+    /// 枚举瞬间应用是否整体隐藏（状态角标 + 隐藏/显示切换的初始判断）
+    let appHidden: Bool
     /// NSScreen 坐标系（左下角为原点）下的窗口位置
     var screenFrame: CGRect?
     var thumbnail: CGImage?
 
     init(app: NSRunningApplication, axApp: AXUIElement, axWindow: AXUIElement,
          cgWindowID: CGWindowID?, cgFrame: CGRect?, title: String,
-         isMinimized: Bool, screenFrame: CGRect?) {
+         isMinimized: Bool, isFullscreen: Bool, appHidden: Bool, screenFrame: CGRect?) {
         self.app = app
         self.axApp = axApp
         self.axWindow = axWindow
@@ -26,6 +30,8 @@ final class WindowItem {
         self.cgFrame = cgFrame
         self.title = title.replacingOccurrences(of: "\n", with: " ")
         self.isMinimized = isMinimized
+        self.isFullscreen = isFullscreen
+        self.appHidden = appHidden
         self.screenFrame = screenFrame
     }
 
@@ -128,6 +134,8 @@ enum WindowEnumerator {
         AXUIElementSetMessagingTimeout(axWindow, 0.35)
         let title = axString(axWindow, kAXTitleAttribute) ?? ""
         let minimized = axBool(axWindow, kAXMinimizedAttribute)
+        // 与上游一致：直接读 AX 全屏标志；部分应用不响应该属性时按 false 处理
+        let fullscreen = axBool(axWindow, "AXFullScreen")
         if minimized && !settings.showMinimized { return nil }
 
         let pos = axPoint(axWindow, kAXPositionAttribute)
@@ -153,7 +161,8 @@ enum WindowEnumerator {
         return WindowItem(app: app, axApp: axApp, axWindow: axWindow,
                           cgWindowID: hasCGID ? cgID : nil,
                           cgFrame: hasCGID ? cgFrames[cgID] : nil,
-                          title: title, isMinimized: minimized, screenFrame: screenFrame)
+                          title: title, isMinimized: minimized, isFullscreen: fullscreen,
+                          appHidden: app.isHidden, screenFrame: screenFrame)
     }
 
     // MARK: - 前台窗口摘要（CacheWarmer 预热用）
