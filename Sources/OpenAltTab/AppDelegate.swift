@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var prefsWindow: PrefsWindow?
     var pollTimer: Timer?
     var watchdogTimer: Timer?
+    /// 启动后的首次自动注册只执行一次：巡检再次弹引导窗口时不重复 reset/request
+    private var autoRegisterDone = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppSettings.shared.applyAppearance()
@@ -28,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPermissionFlow() {
+        autoRegisterIfNeeded()
         if permissionsWindow == nil { permissionsWindow = PermissionsWindow() }
         permissionsWindow?.show()
         if pollTimer == nil {
@@ -37,8 +40,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 常驻低速巡检：权限被移除（如用户删掉旧授权条目）时自动弹回引导窗口，
-    /// 配合"重新注册到系统"按钮，全程无需重启 App
+    /// 自动按需注册：缺哪个权限就只触发哪个的系统弹窗，用户不必自己找按钮
+    private func autoRegisterIfNeeded() {
+        guard !autoRegisterDone else { return }
+        autoRegisterDone = true
+        if !Permissions.accessibilityGranted {
+            Permissions.promptAccessibilityRegistration()
+        }
+        if !Permissions.screenRecordingGranted {
+            Permissions.resetScreenRecordingRegistration()
+            Permissions.requestScreenRecording()
+        }
+    }
+
+    /// 常驻低速巡检：权限被移除（如用户删掉旧授权条目）时自动弹回引导窗口并重新触发按需注册，
+    /// 全程无需重启 App
     private func startPermissionWatchdog() {
         guard watchdogTimer == nil else { return }
         watchdogTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
