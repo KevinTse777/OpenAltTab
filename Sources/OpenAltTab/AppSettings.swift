@@ -184,6 +184,24 @@ final class AppSettings {
         set { d.set(newValue, forKey: "showHiddenApps"); notify() }
     }
 
+    /// 无窗口应用排在列表末尾（对齐上游 showAtTheEnd）
+    var showWindowlessApps: Bool {
+        get { d.object(forKey: "showWindowlessApps") == nil ? true : d.bool(forKey: "showWindowlessApps") }
+        set { d.set(newValue, forKey: "showWindowlessApps"); notify() }
+    }
+
+    /// 把浏览器的标签容器窗口拆成每个标签一张卡片（对齐上游 showTabsAsWindows）
+    var showTabsAsWindows: Bool {
+        get { d.object(forKey: "showTabsAsWindows") == nil ? false : d.bool(forKey: "showTabsAsWindows") }
+        set { d.set(newValue, forKey: "showTabsAsWindows"); notify() }
+    }
+
+    /// 仅显示当前桌面（Space）的窗口（对齐上游 spacesToShow）
+    var showAllSpaces: Bool {
+        get { d.object(forKey: "showAllSpaces") == nil ? true : d.bool(forKey: "showAllSpaces") }
+        set { d.set(newValue, forKey: "showAllSpaces"); notify() }
+    }
+
     var skin: Skin {
         get { Skin(rawValue: d.string(forKey: "skin") ?? "") ?? .macOSSkin }
         set { d.set(newValue.rawValue, forKey: "skin"); notify() }

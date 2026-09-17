@@ -472,14 +472,34 @@ final class AppCoordinator {
     /// NSRunningApplication API 需要主线程
     private func commitNow(_ item: WindowItem) {
         dismiss()
-        workQueue.async {
-            if item.isMinimized {
-                AXUIElementSetAttributeValue(item.axWindow, kAXMinimizedAttribute as CFString,
-                                             kCFBooleanFalse as CFTypeRef)
+        // 无窗口应用：没有 AX 窗口可操作，激活应用即可
+        guard !item.isWindowless else {
+            DispatchQueue.main.async {
+                if #available(macOS 14.0, *) {
+                    _ = item.app.activate()
+                } else {
+                    item.app.activate(options: [.activateIgnoringOtherApps])
+                }
             }
-            AXUIElementSetAttributeValue(item.axApp, kAXFrontmostAttribute as CFString,
-                                         kCFBooleanTrue as CFTypeRef)
-            AXUIElementPerformAction(item.axWindow, kAXRaiseAction as CFString)
+            return
+        }
+        workQueue.async {
+            // 标签页拆分：先点选目标标签，再聚焦窗口
+            if let tabEl = item.tabElement {
+                AXUIElementPerformAction(tabEl, kAXPressAction as CFString)
+            }
+            if let axWindow = item.axWindow {
+                if item.isMinimized || (item.tabElement != nil && item.isMinimizedBase) {
+                    AXUIElementSetAttributeValue(axWindow, kAXMinimizedAttribute as CFString,
+                                                 kCFBooleanFalse as CFTypeRef)
+                }
+                AXUIElementSetAttributeValue(item.axApp, kAXFrontmostAttribute as CFString,
+                                             kCFBooleanTrue as CFTypeRef)
+                AXUIElementPerformAction(axWindow, kAXRaiseAction as CFString)
+            } else {
+                AXUIElementSetAttributeValue(item.axApp, kAXFrontmostAttribute as CFString,
+                                             kCFBooleanTrue as CFTypeRef)
+            }
             DispatchQueue.main.async {
                 if #available(macOS 14.0, *) {
                     _ = item.app.activate()
@@ -524,47 +544,47 @@ final class AppCoordinator {
 
     /// 切换语义：最小化↔还原。全屏窗口先退全屏（动画约 1s），再补最小化
     private func minDeminWindow() {
-        guard let item = selectedItem() else { return }
+        guard let item = selectedItem(), let axWindow = item.axWindow else { return }
         dismiss()
         workQueue.async {
             if item.isFullscreen {
-                AXUIElementSetAttributeValue(item.axWindow, "AXFullScreen" as CFString,
+                AXUIElementSetAttributeValue(axWindow, "AXFullScreen" as CFString,
                                              kCFBooleanFalse as CFTypeRef)
                 // 全屏退场动画没结束前 AX 会忽略 minimize，等 1 秒再发
                 workQueueAfter(1.0) {
-                    AXUIElementSetAttributeValue(item.axWindow, kAXMinimizedAttribute as CFString,
+                    AXUIElementSetAttributeValue(axWindow, kAXMinimizedAttribute as CFString,
                                                  kCFBooleanTrue as CFTypeRef)
                 }
             } else {
                 let flag: CFTypeRef = item.isMinimized ? kCFBooleanFalse : kCFBooleanTrue
-                AXUIElementSetAttributeValue(item.axWindow, kAXMinimizedAttribute as CFString, flag)
+                AXUIElementSetAttributeValue(axWindow, kAXMinimizedAttribute as CFString, flag)
             }
         }
     }
 
     /// 全屏↔还原。AX 属性写入对不响应"AXFullScreen"的应用无效（保持原状态）
     private func toggleFullscreen() {
-        guard let item = selectedItem() else { return }
+        guard let item = selectedItem(), let axWindow = item.axWindow else { return }
         dismiss()
         workQueue.async {
-            AXUIElementSetAttributeValue(item.axWindow, "AXFullScreen" as CFString,
+            AXUIElementSetAttributeValue(axWindow, "AXFullScreen" as CFString,
                                          (item.isFullscreen ? kCFBooleanFalse : kCFBooleanTrue) as CFTypeRef)
         }
     }
 
     private func closeWindow() {
-        guard let item = selectedItem() else { return }
+        guard let item = selectedItem(), let axWindow = item.axWindow else { return }
         dismiss()
         workQueue.async {
             func pressClose() {
                 var v: CFTypeRef?
-                guard AXUIElementCopyAttributeValue(item.axWindow, kAXCloseButtonAttribute as CFString, &v) == .success,
+                guard AXUIElementCopyAttributeValue(axWindow, kAXCloseButtonAttribute as CFString, &v) == .success,
                       let cf = v, CFGetTypeID(cf) == AXUIElementGetTypeID() else { return }
                 AXUIElementPerformAction(unsafeDowncast(cf, to: AXUIElement.self), kAXPressAction as CFString)
             }
             if item.isFullscreen {
                 // 全屏下点关闭按钮可能无效：先退全屏，动画结束后再按
-                AXUIElementSetAttributeValue(item.axWindow, "AXFullScreen" as CFString,
+                AXUIElementSetAttributeValue(axWindow, "AXFullScreen" as CFString,
                                              kCFBooleanFalse as CFTypeRef)
                 workQueueAfter(1.0, pressClose)
             } else {

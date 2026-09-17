@@ -4,7 +4,8 @@ import ApplicationServices
 final class WindowItem {
     let app: NSRunningApplication
     let axApp: AXUIElement
-    let axWindow: AXUIElement
+    /// 无窗口应用（isWindowless）没有可操作的 AX 窗口，此时为 nil
+    let axWindow: AXUIElement?
     /// 用于截图的 CGWindow 编号；个别窗口拿不到时为 nil（显示占位图）
     let cgWindowID: CGWindowID?
     /// CGWindowList 里的实际显示边界（屏幕左上原点坐标系）。
@@ -16,13 +17,20 @@ final class WindowItem {
     var isFullscreen: Bool
     /// 枚举瞬间应用是否整体隐藏（状态角标 + 隐藏/显示切换的初始判断）
     let appHidden: Bool
+    /// 纯应用卡片：应用当前没有可切换的窗口（列表末尾展示，激活即启动/切换）
+    let isWindowless: Bool
+    /// 浏览器标签页拆分时，该卡片对应的 AX 标签元素（提交时 AXPress 切到该标签）
+    let tabElement: AXUIElement?
+    /// 浏览器标签页拆分时窗口本身是否处于最小化（标签容器状态）
+    let isMinimizedBase: Bool
     /// NSScreen 坐标系（左下角为原点）下的窗口位置
     var screenFrame: CGRect?
     var thumbnail: CGImage?
 
-    init(app: NSRunningApplication, axApp: AXUIElement, axWindow: AXUIElement,
+    init(app: NSRunningApplication, axApp: AXUIElement, axWindow: AXUIElement?,
          cgWindowID: CGWindowID?, cgFrame: CGRect?, title: String,
-         isMinimized: Bool, isFullscreen: Bool, appHidden: Bool, screenFrame: CGRect?) {
+         isMinimized: Bool, isFullscreen: Bool, appHidden: Bool, screenFrame: CGRect?,
+         isWindowless: Bool = false, tabElement: AXUIElement? = nil, isMinimizedBase: Bool = false) {
         self.app = app
         self.axApp = axApp
         self.axWindow = axWindow
@@ -32,6 +40,9 @@ final class WindowItem {
         self.isMinimized = isMinimized
         self.isFullscreen = isFullscreen
         self.appHidden = appHidden
+        self.isWindowless = isWindowless
+        self.tabElement = tabElement
+        self.isMinimizedBase = isMinimizedBase
         self.screenFrame = screenFrame
     }
 
@@ -104,6 +115,7 @@ enum WindowEnumerator {
         }
 
         var result: [WindowItem] = []
+        var windowlessApps: [NSRunningApplication] = []
         result.reserveCapacity(24)
         for app in apps {
             if !settings.showHiddenApps && app.isHidden { continue }
@@ -113,7 +125,10 @@ enum WindowEnumerator {
             AXUIElementSetMessagingTimeout(axApp, 0.35)
             var list: CFTypeRef?
             guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &list) == .success,
-                  let axWindows = list as? [AXUIElement] else { continue }
+                  let axWindows = list as? [AXUIElement], !axWindows.isEmpty else {
+                windowlessApps.append(app)
+                continue
+            }
             for axw in axWindows {
                 if let item = describe(app: app, axApp: axApp, axWindow: axw,
                                        settings: settings, cgFrames: cgFrames) {
@@ -129,8 +144,28 @@ enum WindowEnumerator {
                 return a.title.lowercased() < b.title.lowercased()
             }
         }
+        // 无窗口应用排在整个列表末尾（对齐上游 showAtTheEnd）
+        if settings.showWindowlessApps {
+            for app in windowlessApps {
+                if result.count >= AppSettings.maxItems { break }
+                guard let bid = app.bundleIdentifier,
+                      !Self.windowlessRejectList.contains(bid) else { continue }
+                result.append(WindowItem(app: app,
+                                         axApp: AXUIElementCreateApplication(app.processIdentifier),
+                                         axWindow: nil, cgWindowID: nil, cgFrame: nil,
+                                         title: "", isMinimized: false, isFullscreen: false,
+                                         appHidden: app.isHidden, screenFrame: nil,
+                                         isWindowless: true))
+            }
+        }
         return result
     }
+
+    /// 无 UI 的系统进程不出现在"无窗口应用"区（对齐上游拒绝名单的核心部分）
+    private static let windowlessRejectList: Set<String> = [
+        "com.apple.dock", "com.apple.universalcontrol", "com.apple.loginwindow",
+        "com.apple.WindowServer", "com.apple.Spotlight", "com.apple.controlcenter",
+    ]
 
     private static func describe(app: NSRunningApplication, axApp: AXUIElement,
                                  axWindow: AXUIElement, settings: AppSettings,

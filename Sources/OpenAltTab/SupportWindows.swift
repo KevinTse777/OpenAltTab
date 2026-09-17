@@ -251,6 +251,18 @@ final class PrefsWindow {
                                    target: self, action: #selector(hiddenAppsChanged(_:)))
         hiddenCheck.state = settings.showHiddenApps ? .on : .off
 
+        let windowlessCheck = NSButton(checkboxWithTitle: "无窗口应用排在列表末尾",
+                                       target: self, action: #selector(windowlessChanged(_:)))
+        windowlessCheck.state = settings.showWindowlessApps ? .on : .off
+
+        let tabsCheck = NSButton(checkboxWithTitle: "浏览器标签页拆分为独立卡片（仅保证当前标签的缩略图）",
+                                 target: self, action: #selector(tabsChanged(_:)))
+        tabsCheck.state = settings.showTabsAsWindows ? .on : .off
+
+        let spacesCheck = NSButton(checkboxWithTitle: "仅显示当前桌面（Space）的窗口",
+                                   target: self, action: #selector(spacesChanged(_:)))
+        spacesCheck.state = !settings.showAllSpaces ? .on : .off
+
         let shortcuts = NSTextField(wrappingLabelWithString: """
         ⌥ Tab 按住打开切换器并循环，松开 ⌥ 确认切换
         Tab / Shift+Tab / ← → ↑ ↓ 选择窗口　　数字键 1–9 直选
@@ -275,6 +287,9 @@ final class PrefsWindow {
         grid.addRow(with: [label("显示范围"), scopePopup])
         grid.addRow(with: [label("窗口排序"), orderPopup])
         grid.addRow(with: [label("隐藏应用"), hiddenCheck])
+        grid.addRow(with: [label("无窗口应用"), windowlessCheck])
+        grid.addRow(with: [label("标签页"), tabsCheck])
+        grid.addRow(with: [label("Space"), spacesCheck])
         grid.addRow(with: [label("面板位置"), screenPopup])
         grid.addRow(with: [label("图标大小"), iconPopup])
         grid.addRow(with: [label("标题字号"), fontPopup])
@@ -392,5 +407,17 @@ final class PrefsWindow {
 
     @objc private func hiddenAppsChanged(_ sender: NSButton) {
         AppSettings.shared.showHiddenApps = sender.state == .on
+    }
+
+    @objc private func windowlessChanged(_ sender: NSButton) {
+        AppSettings.shared.showWindowlessApps = sender.state == .on
+    }
+
+    @objc private func tabsChanged(_ sender: NSButton) {
+        AppSettings.shared.showTabsAsWindows = sender.state == .on
+    }
+
+    @objc private func spacesChanged(_ sender: NSButton) {
+        AppSettings.shared.showAllSpaces = sender.state != .on
     }
 }
