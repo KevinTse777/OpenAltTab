@@ -144,6 +144,16 @@ enum WindowEnumerator {
                 return a.title.lowercased() < b.title.lowercased()
             }
         }
+        // "仅当前桌面"过滤（对齐上游 spacesToShow）：
+        // 查询失败或窗口 Space 信息缺失时保留该窗口（宁多勿漏）；最小化窗口始终保留
+        if !settings.showAllSpaces, let active = SpaceQuery.activeSpace() {
+            result = result.filter { item in
+                guard !item.isMinimized else { return true }
+                guard let wid = item.cgWindowID else { return true }
+                guard let spaces = SpaceQuery.spacesOfWindow(wid) else { return true }
+                return spaces.isEmpty || spaces.contains(active)
+            }
+        }
         // 无窗口应用排在整个列表末尾（对齐上游 showAtTheEnd）
         if settings.showWindowlessApps {
             for app in windowlessApps {

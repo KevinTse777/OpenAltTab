@@ -35,3 +35,43 @@ enum HWCapture {
         return array.first
     }
 }
+
+/// SkyLight Space 查询（同样的 dlopen 隔离）：
+/// 用于"仅显示当前桌面"过滤——每个窗口查它所属的 Space，再和当前活跃 Space 比对。
+/// 任一符号缺失时 available == false，过滤自动退化为"显示全部 Space"。
+enum SpaceQuery {
+    /// CGSSpaceMask.all（取值来自上游 alt-tab-macos 的 SkyLight 封装）
+    private static let maskAll = 7
+
+    private typealias MainConnectionFn = (@convention(c) () -> UInt32)
+    private typealias CopySpacesForWindowsFn = (@convention(c) (UInt32, Int, CFArray) -> CFArray?)
+    private typealias CopyActiveSpaceFn = (@convention(c) (UInt32) -> UInt64)
+
+    private static let mainConnection: MainConnectionFn? = bind("CGSMainConnectionID")
+    private static let copySpaces: CopySpacesForWindowsFn? = bind("CGSCopySpacesForWindows")
+    private static let copyActive: CopyActiveSpaceFn? = bind("CGSCopyActiveSpace")
+
+    static var available: Bool { mainConnection != nil && copySpaces != nil && copyActive != nil }
+
+    private static func bind<T>(_ symbol: String) -> T? {
+        guard let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY),
+              let ptr = dlsym(handle, symbol) else { return nil }
+        return unsafeBitCast(ptr, to: T.self)
+    }
+
+    /// 当前活跃 Space；查询失败返回 nil
+    static func activeSpace() -> UInt64? {
+        guard available, let con = mainConnection, con() != 0, let copy = copyActive else { return nil }
+        let id = copy(con())
+        return id == 0 ? nil : id
+    }
+
+    /// 某窗口所属的 Space 集合；查询失败返回 nil
+    static func spacesOfWindow(_ wid: CGWindowID) -> Set<UInt64>? {
+        guard available, let con = mainConnection, con() != 0, let copy = copySpaces else { return nil }
+        guard let result = copy(con(), maskAll, [NSNumber(value: wid)] as CFArray) as? [NSNumber] else {
+            return nil
+        }
+        return Set(result.map(\.uint64Value))
+    }
+}
