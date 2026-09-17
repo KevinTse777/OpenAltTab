@@ -105,18 +105,25 @@ enum WindowCapture {
             DispatchQueue.main.async { completion(small) }
         }
 
+        /// 兜底链：SkyLight HW 截取（能拍最小化窗口/规避台前调度倾斜）→ 旧 CG API
+        func legacyFallback() -> CGImage? {
+            if let hw = HWCapture.capture(cgID: cgID), !isBlank(hw) { return hw }
+            if let cg = rawImage(cgID: cgID), !isBlank(cg) { return cg }
+            return nil
+        }
+
         if #available(macOS 14.0, *) {
             scCapture(cgID: cgID, cgFrame: displayBounds) { scImage, skipCGFallback in
                 if let scImage {
                     done(scImage)
-                } else if !skipCGFallback, let cg = rawImage(cgID: cgID), !isBlank(cg) {
-                    done(cg)
+                } else if !skipCGFallback, let img = legacyFallback() {
+                    done(img)
                 } else {
                     done(nil)
                 }
             }
-        } else if let cg = rawImage(cgID: cgID), !isBlank(cg) {
-            done(cg)
+        } else if let img = legacyFallback() {
+            done(img)
         } else {
             done(nil)
         }
