@@ -50,6 +50,7 @@ final class AppCoordinator {
         }
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.keyUp.rawValue)
+            | (1 << CGEventType.scrollWheel.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
         guard let port = CGEvent.tapCreate(tap: .cgSessionEventTap,
                                            place: .headInsertEventTap,
@@ -105,6 +106,21 @@ final class AppCoordinator {
 
         case .keyUp:
             if code == Key.tab && (visible || opening) { return nil }
+
+        case .scrollWheel:
+            // 面板打开时滚轮循环选择（对齐 AltTab）； deltaX 支持横向滚动的左右循环
+            if visible {
+                let dy = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
+                let dx = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
+                if dy != 0 {
+                    cycle(dy > 0 ? -1 : 1)
+                    return nil
+                }
+                if dx != 0 {
+                    cycle(dx > 0 ? -1 : 1)
+                    return nil
+                }
+            }
 
         default:
             break
