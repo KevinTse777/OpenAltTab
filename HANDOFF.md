@@ -49,6 +49,24 @@ open OpenAltTab.app
 2. 【known-risk】CGS 私有查询（SpaceQuery）依赖 SkyLight 符号，系统移除时自动退化为显示全部 Space；AXTabs 在非浏览器应用上的表现未验证（默认关闭，开启后才会读该属性）。
 3. 【打磨方向】Windows 10 皮肤细节（上游有精确的边框/字体复刻）；键盘录制式快捷键编辑器（当前为文本规格输入，功能等价）；更多界面语言（L10n 词条表直加即可）。
 
+## GitHub 发布（待用户一步操作）
+
+本地已全部就绪：31 个提交在 `main`，远端已配置 `origin = git@github.com:KevinTse777/OpenAltTab.git`（SSH 认证有效）。
+**阻塞点**：GitHub 上该仓库尚不存在，而创建仓库需要有效 API 凭据——本机 gh CLI 的 token 已失效且无其他凭据源，无法无人值守建仓。
+
+解法（二选一，然后一条命令推送）：
+
+```bash
+# A. 重新登录 gh（浏览器设备码流程），登录后可顺手建仓：
+gh auth login -h github.com
+gh repo create OpenAltTab --private --source . --push   # 或 --public
+
+# B. 或在网页 github.com/new 建名为 OpenAltTab 的空仓库（不要加 README），然后：
+git push -u origin main
+```
+
+推送后建议：Settings → General 勾选 Releases 用 tag 发布；`git tag v1.3.0 && git push --tags`。
+
 ## 已完成 1.3.0（第三轮，提交记录）
 
 - feat: 无窗口应用排在列表末尾（axWindow 改可选，系统进程排除名单）
