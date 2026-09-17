@@ -42,12 +42,21 @@ open OpenAltTab.app
 
 ## 待办
 
-> 2026-09-17 第二轮迭代：已无人值守实现上游免费+Pro 全部主干功能（v1.2.0，提交 34a6742…d834bb7，见下方"已完成 1.2.0"）。仍**未做真机人工测试**。
-> 上游对比详见 **`docs/对比分析.md`**（Pro 付费墙清单、逐项对比、技术借鉴点）。
+> 2026-09-17 第三轮迭代：结构性缺口 6 项全部实现（v1.3.0，提交 9331cd9…1e2xxxx，见下方"已完成 1.3.0"）。仍**未做真机人工测试**。
+> 上游对比详见 **`docs/对比分析.md`**。上游主干功能（免费 + 已 Pro 化）至此全部有对应实现。
 
-1. 【test】真机验证 1.2.0：F 全屏切换、H/M 切换语义、^Tab、松开行为（保持面板/进入搜索）、滚轮循环、Win10 皮肤、大图预览、自动尺寸、忽略应用、CGSHW 兜底截图（可在最小化窗口上观察）。
-2. 【known-risk】`HWCapture.swift` 私有 API 走 dlopen（已隔离，符号缺失自动回退）；sticky 模式下字符捕获与 anti-swallow 阀门的边界（非可打印键会关面板放行）。
-3. 【结构性缺口】（上游有、受架构/私有 API 限制暂缺，见对比文档）：按 Space 过滤窗口（需 CGS 私有查询）、浏览器标签页拆分（AX tab 组）、无窗口应用列在末尾、第 3–9 组快捷键、CLI、多语言。
+1. 【test】真机验证 1.3.0：URL scheme CLI（`open "openalttab://next"` / `activate/2` / `list`）、Space 过滤（双屏/多桌面环境）、标签页拆分（Safari/Chrome）、无窗口应用区、英文界面、额外触发键（^⌥Tab 等）。
+2. 【known-risk】CGS 私有查询（SpaceQuery）依赖 SkyLight 符号，系统移除时自动退化为显示全部 Space；AXTabs 在非浏览器应用上的表现未验证（默认关闭，开启后才会读该属性）。
+3. 【打磨方向】Windows 10 皮肤细节（上游有精确的边框/字体复刻）；键盘录制式快捷键编辑器（当前为文本规格输入，功能等价）；更多界面语言（L10n 词条表直加即可）。
+
+## 已完成 1.3.0（第三轮，提交记录）
+
+- feat: 无窗口应用排在列表末尾（axWindow 改可选，系统进程排除名单）
+- feat: 触发键通用化——TriggerSpec 解析器支持任意多组修饰键组合（^⌥Tab、⌥\` 等）
+- feat: CLI——`openalttab://` URL scheme（next/previous/show/hide/list/activate:N），open 命令驱动
+- feat: 仅当前 Space 过滤——dlopen 绑定 CGSCopySpacesForWindows/CGSCopyActiveSpace（mask all=7），失败自动退化
+- feat: 界面多语言——跟随系统/中文/English，全部 UI 词条双语化，切换后重建窗口即时生效
+- feat: 浏览器标签页拆分为独立卡片（AXTabs，提交时 AXPress 目标标签）
 
 ## 已完成 1.2.0（第二轮，提交记录）
 
