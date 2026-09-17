@@ -43,6 +43,14 @@ enum PanelScreen: String, CaseIterable {
     var index: Int { PanelScreen.allCases.firstIndex(of: self)! }
 }
 
+/// 面板皮肤
+enum Skin: String, CaseIterable {
+    case macOSSkin   // 毛玻璃 HUD（跟随系统浅/深色）
+    case windows10   // Windows 10 风格：深灰扁平面板 + 蓝色选中框
+
+    var index: Int { Skin.allCases.firstIndex(of: self)! }
+}
+
 /// 卡片内容样式（对齐上游 Pro 的 appearanceStyle，本项目免费）
 enum CardStyle: String, CaseIterable {
     case thumbnails  // 缩略图 + 标题
@@ -168,6 +176,17 @@ final class AppSettings {
     var showHiddenApps: Bool {
         get { d.object(forKey: "showHiddenApps") == nil ? true : d.bool(forKey: "showHiddenApps") }
         set { d.set(newValue, forKey: "showHiddenApps"); notify() }
+    }
+
+    var skin: Skin {
+        get { Skin(rawValue: d.string(forKey: "skin") ?? "") ?? .macOSSkin }
+        set { d.set(newValue.rawValue, forKey: "skin"); notify() }
+    }
+
+    /// 循环时在目标窗口的真实位置浮出大图预览（对齐上游 PreviewPanel）
+    var previewSelectedWindow: Bool {
+        get { d.object(forKey: "previewSelectedWindow") == nil ? true : d.bool(forKey: "previewSelectedWindow") }
+        set { d.set(newValue, forKey: "previewSelectedWindow"); notify() }
     }
 
     var showMinimized: Bool {

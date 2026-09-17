@@ -163,6 +163,16 @@ final class PrefsWindow {
         themePopup.target = self
         themePopup.action = #selector(themeChanged(_:))
 
+        let skinPopup = NSPopUpButton()
+        ["macOS 毛玻璃", "Windows 10"].forEach { skinPopup.addItem(withTitle: $0) }
+        skinPopup.selectItem(at: settings.skin.index)
+        skinPopup.target = self
+        skinPopup.action = #selector(skinChanged(_:))
+
+        let previewCheck = NSButton(checkboxWithTitle: "循环时在目标窗口位置显示大图预览",
+                                    target: self, action: #selector(previewChanged(_:)))
+        previewCheck.state = settings.previewSelectedWindow ? .on : .off
+
         let scopePopup = NSPopUpButton()
         ["所有应用", "仅前台应用"].forEach { scopePopup.addItem(withTitle: $0) }
         scopePopup.selectItem(at: settings.scope.index)
@@ -231,6 +241,8 @@ final class PrefsWindow {
         grid.addRow(with: [label("卡片大小"), sizePopup])
         grid.addRow(with: [label("卡片样式"), stylePopup])
         grid.addRow(with: [label("外观"), themePopup])
+        grid.addRow(with: [label("皮肤"), skinPopup])
+        grid.addRow(with: [label("大图预览"), previewCheck])
         grid.addRow(with: [label("显示范围"), scopePopup])
         grid.addRow(with: [label("窗口排序"), orderPopup])
         grid.addRow(with: [label("隐藏应用"), hiddenCheck])
@@ -273,6 +285,14 @@ final class PrefsWindow {
 
     @objc private func themeChanged(_ sender: NSPopUpButton) {
         AppSettings.shared.theme = Theme.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func skinChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.skin = Skin.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func previewChanged(_ sender: NSButton) {
+        AppSettings.shared.previewSelectedWindow = sender.state == .on
     }
 
     @objc private func scopeChanged(_ sender: NSPopUpButton) {

@@ -77,6 +77,33 @@ enum WindowCapture {
         }
     }
 
+    private static var previewInFlight: CGWindowID?
+
+    /// 预览用高清抓拍（不写缩略图缓存）：SkyLight HW 全尺寸优先，SC / 旧 API 兜底。
+    /// 同一时刻只放行一张，避免选中快速移动时打爆截图通道
+    static func fetchPreview(cgID: CGWindowID, completion: @escaping (CGImage?) -> Void) {
+        queue.async {
+            if previewInFlight != nil {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            previewInFlight = cgID
+            let finish: (CGImage?) -> Void = { img in
+                previewInFlight = nil
+                DispatchQueue.main.async { completion(img) }
+            }
+            if HWCapture.available, let hw = HWCapture.capture(cgID: cgID) {
+                finish(hw)
+                return
+            }
+            if #available(macOS 14.0, *) {
+                scCapture(cgID: cgID, cgFrame: nil) { img, _ in finish(img) }
+            } else {
+                finish(rawImage(cgID: cgID))
+            }
+        }
+    }
+
     /// 在 capture 队列上调用：实拍并写入双层缓存
     private static func fetchLive(cgID: CGWindowID, cardSize: NSSize, diskKey: String,
                                   cgFrame: CGRect?, axSize: CGSize?,

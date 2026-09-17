@@ -40,6 +40,19 @@ final class AppCoordinator {
             self.panel.grid.setSelection(i)
             self.commit()
         }
+        panel.grid.onSelectionChange = { [weak self] _ in
+            self?.updatePreview()
+        }
+    }
+
+    /// 选中窗口的就地大图预览（偏好可关）
+    private func updatePreview() {
+        guard visible, AppSettings.shared.previewSelectedWindow,
+              panel.grid.selection < items.count else {
+            PreviewPanel.shared.hide()
+            return
+        }
+        PreviewPanel.shared.show(item: items[panel.grid.selection])
     }
 
     // MARK: - 事件捕获
@@ -317,6 +330,7 @@ final class AppCoordinator {
                                      maxWidth: screen.visibleFrame.width - 40,
                                      searchLine: searchLineText())
         panel.showCentered(on: screen, size: size)
+        updatePreview()
     }
 
     private func searchLineText() -> String? {
@@ -433,6 +447,13 @@ final class AppCoordinator {
         triggeredByCtrlTab = false
         panel.grid.generation += 1 // 丢弃仍在路上的截图回调
         panel.dismissPanel()
+        PreviewPanel.shared.hide()
+    }
+
+    /// 外观偏好变化时刷新面板皮肤与重绘
+    func refreshAppearance() {
+        panel.applySkin()
+        panel.grid.needsDisplay = true
     }
 
     // MARK: - 窗口操作（全部异步，事件回调不被阻塞）

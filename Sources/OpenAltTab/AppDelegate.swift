@@ -24,8 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startPermissionWatchdog()
 
         NotificationCenter.default.addObserver(forName: AppSettings.changedNotification,
-                                               object: nil, queue: .main) { _ in
+                                               object: nil, queue: .main) { [weak self] _ in
             AppSettings.shared.applyAppearance()
+            self?.coordinator.refreshAppearance()
         }
     }
 

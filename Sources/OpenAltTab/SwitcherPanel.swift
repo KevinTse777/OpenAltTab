@@ -3,6 +3,7 @@ import AppKit
 /// 切换器主面板：无边框、不激活、可在全屏 Space 之上显示
 final class SwitcherPanel: NSPanel {
     let grid = SwitcherGridView()
+    private let effectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
 
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
@@ -19,16 +20,16 @@ final class SwitcherPanel: NSPanel {
         worksWhenModal = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
 
-        let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
-        effect.material = .hudWindow
-        effect.blendingMode = .behindWindow
-        effect.state = .active
-        effect.wantsLayer = true
-        effect.layer?.cornerRadius = 16
-        effect.layer?.masksToBounds = true
-        contentView = effect
-        grid.frame = effect.bounds
-        effect.addSubview(grid)
+        effectView.material = .hudWindow
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.wantsLayer = true
+        effectView.layer?.cornerRadius = 16
+        effectView.layer?.masksToBounds = true
+        contentView = effectView
+        grid.frame = effectView.bounds
+        effectView.addSubview(grid)
+        applySkin()
     }
 
     override var canBecomeKey: Bool { false }
@@ -49,6 +50,21 @@ final class SwitcherPanel: NSPanel {
     func dismissPanel() {
         alphaValue = 0
         orderOut(nil)
+    }
+
+    /// 按皮肤偏好切换外观（毛玻璃 HUD ↔ Windows 10 扁平深灰）
+    func applySkin() {
+        if AppSettings.shared.skin == .windows10 {
+            effectView.state = .inactive
+            effectView.material = .dark
+            effectView.layer?.backgroundColor = NSColor(red: 0.13, green: 0.13, blue: 0.15, alpha: 0.99).cgColor
+            effectView.layer?.cornerRadius = 6
+        } else {
+            effectView.state = .active
+            effectView.material = .hudWindow
+            effectView.layer?.backgroundColor = nil
+            effectView.layer?.cornerRadius = 16
+        }
     }
 }
 
@@ -72,6 +88,8 @@ final class SwitcherGridView: NSView {
     /// 递增计数：面板关闭后用于丢弃仍在路上的异步截图回调
     var generation = 0
     var onPick: ((Int) -> Void)?
+    /// 选中项变化（含悬停）时回调——大图预览跟随
+    var onSelectionChange: ((Int) -> Void)?
 
     private let inset: CGFloat = 16
     private let spacing: CGFloat = 12
@@ -174,11 +192,14 @@ final class SwitcherGridView: NSView {
     func setSelection(_ index: Int) {
         selection = min(max(0, index), max(0, items.count - 1))
         needsDisplay = true
+        onSelectionChange?(selection)
     }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
-        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        // Windows 10 皮肤强制深色配色
+        let win10 = AppSettings.shared.skin == .windows10
+        let dark = win10 || effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
 
         // 顶部搜索行
         if let sl = searchLine {
@@ -233,6 +254,7 @@ final class SwitcherGridView: NSView {
 
     private func drawCard(_ item: WindowItem, card: Card, index: Int, selected: Bool, dark: Bool, ctx: CGContext) {
         let style = AppSettings.shared.cardStyle
+        let win10 = AppSettings.shared.skin == .windows10
         let cardPath = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
 
         ctx.saveGState()
@@ -331,8 +353,12 @@ final class SwitcherGridView: NSView {
         // 选中描边
         if selected {
             let ring = NSBezierPath(roundedRect: card.frame.insetBy(dx: 1.5, dy: 1.5), xRadius: 11, yRadius: 11)
-            ring.lineWidth = 3
-            NSColor.controlAccentColor.setStroke()
+            ring.lineWidth = win10 ? 2 : 3
+            if win10 {
+                NSColor(red: 0.06, green: 0.44, blue: 0.85, alpha: 1).setStroke()
+            } else {
+                NSColor.controlAccentColor.setStroke()
+            }
             ring.stroke()
         }
 
@@ -378,5 +404,6 @@ final class SwitcherGridView: NSView {
         guard let i = cards.firstIndex(where: { $0.frame.contains(p) }), i != selection else { return }
         selection = i
         needsDisplay = true
+        onSelectionChange?(i)
     }
 }
