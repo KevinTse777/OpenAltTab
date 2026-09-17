@@ -22,8 +22,8 @@ final class PermissionsWindow {
         let scrBtn = NSButton(title: "打开系统设置", target: self, action: #selector(openScr))
         scrBtn.bezelStyle = .rounded
 
-        // App 重新编译/移动后签名变化，旧授权条目失效；点此让系统重新登记，无需重启
-        let reRegisterBtn = NSButton(title: "重新注册到系统（重新编译 / 移动 App 后点这里）",
+        // App 重新编译/移动后签名变化，旧授权条目失效；点此按需重新登记缺失项，无需重启
+        let reRegisterBtn = NSButton(title: "重新注册缺失的权限（重新编译 / 移动 App 后点这里）",
                                      target: self, action: #selector(reRegister))
         reRegisterBtn.bezelStyle = .rounded
         reRegisterBtn.keyEquivalent = "\r"
@@ -34,7 +34,7 @@ final class PermissionsWindow {
                                   target: self, action: #selector(restartApp))
         restartBtn.bezelStyle = .rounded
 
-        let note = NSTextField(wrappingLabelWithString: "用法：点\"重新注册\" → 系统弹窗确认 → 在列表里打开开关。\n辅助功能即时生效；屏幕录制必须重启 App（点\"重启 OpenAltTab\"按钮）才生效。\n重新注册会先自动清除旧的注册标记，再触发弹窗；若列表仍不出现，点\"在访达中显示\"把 App 拖进列表。")
+        let note = NSTextField(wrappingLabelWithString: "用法：点\"重新注册\"（只处理缺失项）→ 系统弹窗确认 → 在列表里打开开关。\n辅助功能即时生效；屏幕录制必须重启 App（点\"重启 OpenAltTab\"按钮）才生效。\n若弹窗仍不出现，点\"在访达中显示\"把 App 拖进列表。")
         note.font = NSFont.systemFont(ofSize: 11)
         note.textColor = .secondaryLabelColor
 
@@ -116,14 +116,21 @@ final class PermissionsWindow {
         NSWorkspace.shared.selectFile(Bundle.main.bundlePath, inFileViewerRootedAtPath: "")
     }
 
-    /// 重新注册：让系统把 App 重新插回两项授权列表（签名变化导致旧条目失效后使用）
+    /// 按需重新注册：只处理缺失的权限项，避免把仍然有效的授权也清掉。
+    /// 辅助功能缺失 → 弹系统授权窗并打开对应设置；
+    /// 屏幕录制缺失 → 先清"已询问过"标记再触发弹窗，只打开屏幕录制面板
     @objc private func reRegister() {
-        Permissions.promptAccessibilityRegistration()
-        // 屏幕录制：先清掉"已询问过"标记，否则 CGRequestScreenCaptureAccess 会被静默忽略，
-        // 列表里始终不会重新出现条目
-        Permissions.resetScreenRecordingRegistration()
-        Permissions.requestScreenRecording()
-        Permissions.openScreenRecordingSettings()
+        if !Permissions.accessibilityGranted {
+            Permissions.promptAccessibilityRegistration()
+            Permissions.openAccessibilitySettings()
+        }
+        if !Permissions.screenRecordingGranted {
+            // 屏幕录制：先清掉"已询问过"标记，否则 CGRequestScreenCaptureAccess 会被静默忽略，
+            // 列表里始终不会重新出现条目
+            Permissions.resetScreenRecordingRegistration()
+            Permissions.requestScreenRecording()
+            Permissions.openScreenRecordingSettings()
+        }
     }
 }
 
