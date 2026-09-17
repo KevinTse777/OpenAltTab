@@ -63,6 +63,8 @@ final class SwitcherGridView: NSView {
     private(set) var selection = 0
     private(set) var perRow = 1
     private var cards: [Card] = []
+    /// 顶部搜索行内容（搜索模式才显示）
+    private var searchLine: String?
     /// 递增计数：面板关闭后用于丢弃仍在路上的异步截图回调
     var generation = 0
     var onPick: ((Int) -> Void)?
@@ -71,13 +73,26 @@ final class SwitcherGridView: NSView {
     private let spacing: CGFloat = 12
     private let titleHeight: CGFloat = 30
     private let cardPadding: CGFloat = 8
+    private let searchLineHeight: CGFloat = 30
 
     @discardableResult
-    func update(items: [WindowItem], selection: Int, thumbSize: NSSize, maxWidth: CGFloat) -> NSSize {
+    func update(items: [WindowItem], selection: Int, thumbSize: NSSize, maxWidth: CGFloat,
+                searchLine: String? = nil) -> NSSize {
         self.items = items
         self.selection = min(max(0, selection), max(0, items.count - 1))
+        self.searchLine = searchLine
         generation += 1
         cards.removeAll()
+
+        let searchH: CGFloat = searchLine == nil ? 0 : searchLineHeight
+
+        // 搜索无结果：只留搜索行 + 一行提示
+        guard !items.isEmpty else {
+            let size = NSSize(width: max(280, min(maxWidth, 340)), height: searchH + 52)
+            setFrameSize(size)
+            needsDisplay = true
+            return size
+        }
 
         let cardW = thumbSize.width + cardPadding * 2
         let cardH = thumbSize.height + titleHeight + cardPadding * 2
@@ -86,10 +101,10 @@ final class SwitcherGridView: NSView {
         perRow = per
         let count = items.count
         let cols = min(count, per)
-        let rows = Int(ceil(Double(max(count, 1)) / Double(per)))
+        let rows = Int(ceil(Double(count) / Double(per)))
         let gridW = CGFloat(cols) * cardW + CGFloat(cols - 1) * spacing
         let gridH = CGFloat(rows) * cardH + CGFloat(rows - 1) * spacing
-        let size = NSSize(width: gridW + inset * 2, height: gridH + inset * 2)
+        let size = NSSize(width: gridW + inset * 2, height: gridH + searchH + inset * 2)
 
         for i in 0..<count {
             let r = i / per
@@ -97,8 +112,8 @@ final class SwitcherGridView: NSView {
             let colsInRow = min(per, count - r * per)
             let rowW = CGFloat(colsInRow) * cardW + CGFloat(colsInRow - 1) * spacing
             let x0 = inset + (gridW - rowW) / 2
-            // 非翻转坐标系：第 0 行在最上方
-            let y = size.height - inset - CGFloat(r + 1) * cardH - CGFloat(r) * spacing
+            // 非翻转坐标系：搜索行在最上方，第 0 行卡片紧随其下
+            let y = size.height - inset - searchH - CGFloat(r + 1) * cardH - CGFloat(r) * spacing
             let frame = CGRect(x: x0 + CGFloat(c) * (cardW + spacing), y: y, width: cardW, height: cardH)
             let thumb = CGRect(x: frame.minX + cardPadding,
                                y: frame.maxY - cardPadding - thumbSize.height,
@@ -122,6 +137,34 @@ final class SwitcherGridView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+
+        // 顶部搜索行
+        if let sl = searchLine {
+            let ps = NSMutableParagraphStyle()
+            ps.lineBreakMode = .byTruncatingTail
+            let rect = CGRect(x: inset, y: bounds.height - searchLineHeight,
+                              width: bounds.width - inset * 2, height: searchLineHeight - 4)
+            sl.draw(in: rect, withAttributes: [
+                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: NSColor.labelColor,
+                .paragraphStyle: ps,
+            ])
+        }
+
+        // 空态：无窗口 / 搜索无匹配
+        if items.isEmpty {
+            let text = searchLine == nil ? "没有可切换的窗口" : "无匹配窗口"
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 13),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ]
+            let ts = text.size(withAttributes: attrs)
+            let centerY = searchLine == nil ? bounds.midY : (bounds.height - searchLineHeight) / 2
+            text.draw(at: NSPoint(x: (bounds.width - ts.width) / 2, y: centerY - ts.height / 2),
+                      withAttributes: attrs)
+            return
+        }
+
         for (i, item) in items.enumerated() {
             guard i < cards.count else { break }
             drawCard(item, card: cards[i], index: i, selected: i == selection, dark: dark, ctx: ctx)

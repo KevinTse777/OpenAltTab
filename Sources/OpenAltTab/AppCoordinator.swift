@@ -10,7 +10,10 @@ import ApplicationServices
 final class AppCoordinator {
     private let panel = SwitcherPanel()
     private let workQueue = DispatchQueue(label: "OpenAltTab.work", qos: .userInitiated)
+    /// 展示中的窗口列表（搜索模式下是 allItems 的过滤子集）
     private var items: [WindowItem] = []
+    /// 全量窗口列表
+    private var allItems: [WindowItem] = []
     private var selection = 0
     private var visible = false
     /// ⌥Tab 触发后、面板出现前的过渡态（枚举在后台进行）
@@ -19,6 +22,9 @@ final class AppCoordinator {
     private var pendingCycles = 0
     /// 最近一次看到的 ⌥ 按键状态
     private var lastOptionHeld = false
+    /// 搜索模式（/ 进入）：字母数字追加查询，过滤 items
+    private var searchMode = false
+    private var query = ""
     private var tapPort: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private(set) var tapInstalled = false
@@ -116,7 +122,10 @@ final class AppCoordinator {
         }
 
         if hasOption {
-            // ⌥ 按住：完整键位可用
+            // ⌥ 按住：搜索模式有独立键位；否则完整键位可用
+            if searchMode {
+                return handleSearchKeyDown(code: code, event: event, hasShift: hasShift)
+            }
             switch code {
             case Key.tab: cycle(hasShift ? -1 : 1)
             case Key.right: cycle(1)
@@ -124,6 +133,7 @@ final class AppCoordinator {
             case Key.down: cycle(panel.grid.perRow)
             case Key.up: cycle(-panel.grid.perRow)
             case Key.return, Key.keypadEnter, Key.space: commit()
+            case Key.slash: enterSearch()
             case Key.h: hideApp()
             case Key.m: minimizeWindow()
             case Key.w: closeWindow()
@@ -149,6 +159,33 @@ final class AppCoordinator {
         default:
             cancel()
             return Unmanaged.passUnretained(event)
+        }
+        return nil
+    }
+
+    /// 搜索模式键位：可打印字符追加查询；退格删除（空则退出）；
+    /// Enter 提交、Esc 退出搜索；Tab/方向键仍循环。字母不再触发 H/M/W/Q 窗口操作
+    private func handleSearchKeyDown(code: Int64, event: CGEvent, hasShift: Bool) -> Unmanaged<CGEvent>? {
+        switch code {
+        case Key.tab: cycle(hasShift ? -1 : 1)
+        case Key.right: cycle(1)
+        case Key.left: cycle(-1)
+        case Key.down: cycle(panel.grid.perRow)
+        case Key.up: cycle(-panel.grid.perRow)
+        case Key.return, Key.keypadEnter: commit()
+        case Key.escape: exitSearch()
+        case Key.backspace:
+            if query.isEmpty {
+                exitSearch()
+            } else {
+                query.removeLast()
+                applyFilter()
+            }
+        default:
+            if let ch = SearchInput.character(from: event) {
+                query += ch
+                applyFilter()
+            }
         }
         return nil
     }
@@ -183,34 +220,48 @@ final class AppCoordinator {
             NSSound.beep()
             return
         }
+        allItems = items
         self.items = items
+        searchMode = false
+        query = ""
 
         // 初始选中：前台应用窗口的下一个
         if let front = NSWorkspace.shared.frontmostApplication,
-           let idx = items.firstIndex(where: { $0.app.processIdentifier == front.processIdentifier }) {
-            selection = (idx + 1 + cycles) % items.count
+           let idx = allItems.firstIndex(where: { $0.app.processIdentifier == front.processIdentifier }) {
+            selection = (idx + 1 + cycles) % allItems.count
         } else {
-            selection = ((0 + cycles) % items.count + items.count) % items.count
+            selection = ((0 + cycles) % allItems.count + allItems.count) % allItems.count
         }
 
         // 趁旧前台窗口还在前台：立即补拍一张（此时必然摆正且已渲染），
         // 之后它被台前调度收起时就有干净的缓存可显示
-        captureFrontWindowNow(items: items)
+        captureFrontWindowNow(items: allItems)
 
         // ⌥ 已经松开（快速轻点 ⌥Tab）：不弹面板，直接切换
         if !lastOptionHeld {
-            commitNow(items[selection])
+            commitNow(allItems[selection])
             return
         }
 
         visible = true
         WindowCapture.invalidateWindowList()
+        relayout()
+        scheduleThumbnails()
+    }
+
+    /// 按当前 items/搜索状态重建网格并调整面板尺寸（过滤时面板随之缩放）
+    private func relayout() {
         let screen = targetScreen()
         let size = panel.grid.update(items: items, selection: selection,
                                      thumbSize: AppSettings.shared.cardSize.thumbSize,
-                                     maxWidth: screen.visibleFrame.width - 40)
+                                     maxWidth: screen.visibleFrame.width - 40,
+                                     searchLine: searchLineText())
         panel.showCentered(on: screen, size: size)
-        scheduleThumbnails()
+    }
+
+    private func searchLineText() -> String? {
+        guard searchMode else { return nil }
+        return "搜索: \(query)　\(items.count)/\(allItems.count)"
     }
 
     /// 立即补拍当前前台应用的主窗口
@@ -236,7 +287,7 @@ final class AppCoordinator {
     private func scheduleThumbnails() {
         let gen = panel.grid.generation
         let cardSize = AppSettings.shared.cardSize.thumbSize
-        for (i, item) in items.enumerated() {
+        for item in items {
             guard let cgID = item.cgWindowID else { continue }
             if let hit = WindowCapture.cached(cgID: cgID) {
                 item.thumbnail = hit
@@ -245,13 +296,45 @@ final class AppCoordinator {
             WindowCapture.fetch(cgID: cgID, cardSize: cardSize,
                                 diskKey: item.diskKey, cgFrame: item.cgFrame,
                                 axSize: item.screenFrame?.size) { [weak self] image in
-                guard let self, self.visible, self.panel.grid.generation == gen,
-                      i < self.items.count else { return }
-                self.items[i].thumbnail = image
+                // 完成回调直接赋值到窗口对象上：搜索过滤会改变 items 的下标，
+                // 按 i 取会错位，对象引用不会；-generation 检查保证面板已关闭就丢弃
+                guard let self, self.visible, self.panel.grid.generation == gen else { return }
+                item.thumbnail = image
                 self.panel.grid.needsDisplay = true
             }
         }
         panel.grid.needsDisplay = true
+    }
+
+    // MARK: - 搜索过滤
+
+    private func enterSearch() {
+        searchMode = true
+        query = ""
+        applyFilter()
+    }
+
+    private func exitSearch() {
+        searchMode = false
+        query = ""
+        applyFilter()
+    }
+
+    /// 按查询过滤（应用名 + 窗口标题，大小写不敏感），保持原相对顺序；
+    /// 原选中窗口仍在结果里时保持其选中位置
+    private func applyFilter() {
+        let current = selection < items.count ? items[selection] : nil
+        if query.isEmpty {
+            items = allItems
+        } else {
+            let q = query.lowercased()
+            items = allItems.filter {
+                $0.title.lowercased().contains(q) || $0.appName.lowercased().contains(q)
+            }
+        }
+        selection = current.flatMap { c in items.firstIndex { $0 === c } } ?? 0
+        relayout()
+        scheduleThumbnails()
     }
 
     private func cycle(_ delta: Int) {

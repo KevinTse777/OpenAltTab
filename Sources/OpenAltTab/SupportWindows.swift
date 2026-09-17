@@ -169,7 +169,7 @@ final class PrefsWindow {
         let shortcuts = NSTextField(wrappingLabelWithString: """
         ⌥ Tab 按住打开切换器并循环，松开 ⌥ 确认切换
         Tab / Shift+Tab / ← → ↑ ↓ 选择窗口　　数字键 1–9 直选
-        Return / 点击缩略图 立即切换　　Esc 取消
+        / 进入搜索（退格删除，Esc 退出）　　Return / 点击缩略图 立即切换　　Esc 取消
         H 隐藏应用　M 最小化窗口　W 关闭窗口　Q 退出应用
         """)
         shortcuts.font = NSFont.systemFont(ofSize: 11)
