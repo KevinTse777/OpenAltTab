@@ -2,25 +2,60 @@
 
 macOS 上的 Windows 风格窗口切换器：按住 **⌥ (Option) + Tab**，弹出所有窗口的实时缩略图，松开 ⌥ 即刻切换。
 
-参考 [AltTab](https://alt-tab.xyz)（GitHub: lwouis/alt-tab-macos）的功能形态自行实现——**全部功能免费、无任何付费墙**。GitHub 上的 AltTab 本身是免费开源项目（页面上的按钮是捐赠，不是付费解锁）；真正收费的是 Witch、Contexts 这类同类工具，本项目把它们的常用付费功能也一并实现了。
+参考 [AltTab](https://alt-tab.xyz)（GitHub: lwouis/alt-tab-macos）自行实现。**AltTab 已于 2026 年转向 Pro 付费模式**（切换器内搜索、外观样式、自动尺寸、多组快捷键均进入付费墙），本项目把这些功能**全部免费实现**——无任何付费墙、无联网、无授权校验。
 
-![概念示意](https://img.shields.io/badge/macOS-13%2B-blue) ![构建](https://img.shields.io/badge/Swift%20Package-swift%20build-orange)
+![macOS](https://img.shields.io/badge/macOS-13%2B-blue) ![构建](https://img.shields.io/badge/SwiftPM-swift%20build-orange) ![版本](https://img.shields.io/badge/version-1.3.0-green)
 
 ## 功能
 
-- ⌥Tab 按住呼出、松开即切换（Windows 手感）
-- 每个窗口一个缩略图（不是每个应用一个），支持已最小化窗口
-- 键盘：`Tab` / `Shift+Tab` / `←→↑↓` 循环选择，`1–9` 数字直选，`Return` 确认，`Esc` 取消
-- 鼠标：点击缩略图直接切换
-- 窗口操作快捷键（选中后按下即生效）：
-  - `H` 隐藏该应用　`M` 最小化该窗口　`W` 关闭该窗口　`Q` 退出该应用
-- `⌘Tab` 完全不受影响，仍调用系统原生切换器（呼出面板后按 ⌘Tab 会让位给原生）
-- 多显示器：面板出现在目标窗口所在的屏幕
-- 外观：毛玻璃面板，深色/浅色/跟随系统，卡片大小三档可选
-- 可选只显示前台应用的窗口；登录自启动（SMAppService）
-- 菜单栏常驻图标：权限状态、偏好设置、清除缩略图缓存、登录自启、退出
-- **缓存预热器**：监听全局应用激活事件，每个应用切到前台约 2 秒后自动补拍其前台窗口——
-  用户正常使用过的窗口都会被渐进式捕获进"最后所见"缓存，快速连切也不漏
+### 核心切换
+- ⌥Tab 按住呼出、松开即切换（Windows 手感）；每组窗口一张缩略图（不是每个应用一张），支持已最小化窗口
+- 键盘：`Tab` / `Shift+Tab` / `←→↑↓` 循环，`1–9` 数字直选，`Return` 确认，`Esc` 取消
+- 鼠标：点击缩略图切换，**悬停即选中**，面板打开时**滚轮/触控板滚动循环**
+- `/` 进入搜索：按相关性评分过滤（前缀 > 词边界 > 子串 > 模糊），应用名加权排序；退格删字、Esc 退出
+- `⌘Tab` 完全不受影响，仍调用系统原生切换器
+
+### 窗口操作（选中后按下即生效，需按住 ⌥）
+- `H` 隐藏↔显示应用　`M` 最小化↔还原窗口　`W` 关闭窗口　`Q` 退出应用　`F` 全屏切换
+- 全屏窗口执行最小化/关闭时自动先退全屏再操作（等待动画结束）
+
+### 多组触发键与松开行为
+- 内置 ⌥Tab；可启用 ^Tab 第二组；还可用文本规格配置**任意多组**触发键（如 `^⌥Tab`、`` ⌥` ``）
+- 松开行为可选：**立即切换**（经典）/ **保持面板**（回车确认）/ **进入搜索**（上游 Pro 的 searchOnRelease 免费版）
+
+### 窗口列表
+- 排序：最近聚焦优先 / 按名称；显示范围：所有应用 / 仅前台应用
+- 可选过滤：显示最小化窗口、显示 ⌘H 隐藏应用、**仅当前桌面（Space）**的窗口
+- **浏览器标签页拆分**：每个标签一张独立卡片，切换时自动点选目标标签（缩略图为当前标签画面）
+- **无窗口应用**排在列表末尾，激活即启动/切换
+- 每应用例外：指定忽略的应用
+
+### 外观
+- 卡片样式：**缩略图 / 纯应用图标 / 纯标题**（上游 Pro 样式，免费）
+- **自动尺寸**：按窗口数量分档调整卡片大小（上游 Pro autoSize，免费）
+- 皮肤：macOS 毛玻璃 / **Windows 10 扁平风**；浅色/深色/跟随系统
+- 图标大小、标题字号、最大行数（1–5 行，超宽自动等比缩卡片）
+- 卡片角标：数字直选、同应用窗口数、**隐藏 ⊘ / 全屏 / 最小化 −** 状态角标
+- **就地大图预览**：循环时在目标窗口的真实位置浮出高清预览
+- **界面多语言**：跟随系统 / 中文 / English
+
+### 系统整合
+- 菜单栏常驻：权限状态、偏好设置、清缓存、登录自启（SMAppService）、退出
+- 权限全自动化：启动时按需自动触发系统授权弹窗 + 5 秒巡检自动恢复，无需重启 App
+- **CLI**：`open "openalttab://动作"` 从命令行/脚本驱动（见下文）
+
+## CLI
+
+```bash
+open "openalttab://next"        # 切到相对前台的下一个窗口
+open "openalttab://previous"    # 上一个
+open "openalttab://show"        # 弹出切换器面板
+open "openalttab://hide"        # 关闭面板
+open "openalttab://activate/2"  # 切到列表第 2 项
+open "openalttab://list"        # 把窗口清单写入 /tmp/openalttab_windows.txt
+```
+
+可加 alias：`alias oat='open "openalttab://$1"'`。
 
 ## 构建与安装
 
@@ -36,25 +71,14 @@ open OpenAltTab.app
 
 ## 首次使用：授予两项权限
 
-启动后 App 会弹出权限引导窗口，并每秒自动检测，授权完成后自动关闭、无需重启：
+启动后 App 自动弹出对应的系统授权弹窗（缺哪个触发哪个），并每秒检测、5 秒巡检自动恢复：
 
 | 权限 | 用途 | 位置 |
 |---|---|---|
-| 辅助功能 | 全局监听 ⌥Tab 按键、枚举/切换/最小化窗口 | 系统设置 → 隐私与安全性 → 辅助功能 |
+| 辅助功能 | 全局监听 ⌥Tab 按键、枚举/切换/窗口操作 | 系统设置 → 隐私与安全性 → 辅助功能 |
 | 屏幕录制 | 生成窗口实时缩略图 | 系统设置 → 隐私与安全性 → 屏幕录制 |
 
-不授权屏幕录制时功能仍可用，但缩略图会显示为应用图标占位图。
-
-> 重新编译后授权失效？ad-hoc 签名的 App 在重新构建后 cdhash 会变化，macOS 可能要求重新授权：在隐私列表里先移除旧条目再重新添加即可。
-
-## 使用方法
-
-1. 按住 `⌥ Option`，按一下 `Tab`：切换器出现并选中下一个窗口
-2. 继续按住 `⌥` 的同时：`Tab` 向前循环、`Shift+Tab` 向后、方向键自由移动、数字键直选
-3. 松开 `⌥`：立即切换到选中的窗口
-4. 也可以直接按 `H` / `M` / `W` / `Q` 对选中项执行隐藏 / 最小化 / 关闭 / 退出
-
-菜单栏图标 → 偏好设置：卡片大小、深浅色主题、显示范围（所有应用 / 仅前台应用）、是否显示最小化窗口。
+不授权屏幕录制时功能仍可用，但缩略图显示为应用图标占位图。屏幕录制授权需在开关打开后**重启 App**（引导窗口有一键重启按钮）。
 
 ## 项目结构
 
@@ -62,50 +86,55 @@ open OpenAltTab.app
 OpenAltTab/
 ├── Package.swift                     # SwiftPM，无第三方依赖
 ├── Sources/OpenAltTab/
-│   ├── main.swift                    # 入口：无 Dock 图标的常驻 App
-│   ├── AppDelegate.swift             # 菜单栏、权限轮询、设置入口
-│   ├── AppCoordinator.swift          # 事件状态机：呼出/循环/提交/窗口操作
-│   ├── SwitcherPanel.swift           # NSPanel（不激活、全屏 Space 可见）+ 手绘缩略图网格
-│   ├── WindowEnumerator.swift        # AX API 枚举窗口：标题/最小化/位置/CGWindowID 映射
-│   ├── WindowCapture.swift           # 后台线程截图 + 降采样缓存
-│   ├── AppSettings.swift             # UserDefaults 偏好
+│   ├── main.swift                    # 入口：--dump-windows 诊断分支
+│   ├── AppDelegate.swift             # 菜单栏、权限自动化、CLI(URL scheme)、多语言重建
+│   ├── AppCoordinator.swift          # 事件状态机：呼出/循环/提交/搜索/窗口操作/CLI 接口
+│   ├── SwitcherPanel.swift           # NSPanel + 手绘网格（样式/皮肤/角标/悬停）
+│   ├── PreviewPanel.swift            # 选中窗口的就地大图预览
+│   ├── WindowEnumerator.swift        # AX 枚举：标签拆分/幽灵窗口过滤/无窗口应用/排序
+│   ├── WindowCapture.swift           # SC 截图 + 双层缓存 + 预览抓拍
+│   ├── HWCapture.swift               # SkyLight 私有 API（dlopen 隔离）：CGSHWCaptureWindowList 截图 + CGS Space 查询
+│   ├── Search.swift                  # 搜索分层相关性评分
+│   ├── CacheWarmer.swift             # 应用激活 2 秒后预热其前台窗口
+│   ├── AppSettings.swift             # UserDefaults 偏好全集
 │   ├── SupportWindows.swift          # 权限引导窗口、偏好设置窗口
-│   ├── Permissions.swift             # 辅助功能/屏幕录制权限检测与跳转
-│   └── Keys.swift                    # 虚拟键码表
-└── scripts/make_app.sh               # 编译 + 组装 .app + ad-hoc 签名
+│   ├── Permissions.swift             # 权限检测/按需注册
+│   ├── L10n.swift                    # 中英双语词条
+│   ├── Keys.swift                    # 虚拟键码 + 触发键规格解析
+│   └── DebugDump.swift               # --dump-windows 诊断
+├── docs/对比分析.md                   # 与上游 alt-tab-macos 的源码级对比（Pro 付费墙/差距/路线图）
+├── HANDOFF.md                        # 交接文档：架构/教训/待办/约定
+└── scripts/make_app.sh               # 编译 + 组装 .app（含 URL scheme 注册）+ ad-hoc 签名
 ```
 
-### 实现要点（对照 AltTab 的做法）
+### 实现要点
 
-- **缩略图缓存体系**：内存 LRU（256 条）+ 磁盘持久化（`~/Library/Caches/com.openalttab.macos/thumbs`，按"应用+窗口标题"键存长边 640px 高清版，上限 150 张）双层；写入时机：面板打开瞬间的前台窗口、切换成功后 0.8s/2.2s 两轮重拍、CacheWarmer 激活预热。菜单栏可一键清空
-
-- **按键捕获（防吞字设计）**：`CGEventTap`（session 级、defaultTap）只拦 `Tab` 的按下/抬起和修饰键变化；**事件回调里绝不做慢操作**——AX 枚举、聚焦、窗口操作全部在后台队列执行，回调立即返回；面板打开时若 ⌥ 已松开，非导航键一律放行并自动关闭面板，任何异常状态都不会吞掉正在输入的内容；H/M/W/Q 等窗口操作键必须按住 ⌥ 才生效，避免误关窗口；`⌘Tab` 原样放行；tap 被系统强制禁用时自动恢复并放弃面板状态
-- **窗口枚举**：每个正在运行的常规应用通过 `AXUIElement`（辅助功能 API）取窗口列表，比纯 `CGWindowList` 多拿到最小化/其他 Space 的窗口；用私有但多年稳定的 `_AXUIElementGetWindow` 把 AX 窗口映射为 `CGWindowID`（AltTab 同款做法），并设置 0.35s 消息超时防止单个无响应应用卡住全局
-- **应用排序**：监听 `NSWorkspace.didActivateApplicationNotification` 维护最近使用顺序，前台应用永远排第一
-- **缩略图（台前调度友好）**：
-  - 主路径 ScreenCaptureKit `SCScreenshotManager` + `SCContentFilter(desktopIndependentWindow:)`，独立于窗口是否在屏幕上截图；失败自动重试一次（SC 偶发 -3811 瞬时错误）；最后以旧 `CGWindowListCreateImage` 兜底
-  - **倾斜条目拒绝**：macOS 26 台前调度把左侧条目窗口以"缩小 + 3D 倾斜"合成，任何截图 API 拿到的都是倾斜画面。通过 SC 逻辑尺寸 ÷ CG 实际边界 > 1.5 识别这类窗口并拒绝实拍
-  - **"最后所见"持久缓存**：预览图按"应用+窗口标题"存磁盘（`~/Library/Caches/com.openalttab.macos/thumbs`，上限 150 张 LRU）；窗口每次成为前台 1.2 秒后自动重拍更新。被收起的窗口优先显示缓存里那张摆正的预览
-  - **纯色占位图检测**：驻留屏幕外太久、渲染缓存被系统清除的窗口只能截到单色画面（灰/黑/白），视为无效内容，显示应用图标占位
-- **切换**：取消最小化（AX）→ 激活应用 → AX Raise 目标窗口
+- **缩略图缓存体系**：内存 LRU（256 条）+ 磁盘持久化（`~/Library/Caches/com.openalttab.macos/thumbs`，按"应用+窗口标题"键存长边 640px 高清版）双层；写入时机：面板打开瞬间的前台窗口、切换成功后 0.8s/2.2s 两轮重拍、CacheWarmer 激活预热
+- **截图管线**：ScreenCaptureKit 主路径（偶发 -3811 自动重试一次）→ SkyLight `CGSHWCaptureWindowList` 兜底（**能拍最小化窗口**，fullSize 位可规避台前调度倾斜；dlopen 惰性绑定，符号缺失自动回退）→ 旧 `CGWindowListCreateImage` 最后兜底；台前调度"缩小+倾斜"条目通过 SC/CG 尺寸比识别并拒绝实拍，改用"最后所见"磁盘缓存；纯色空白帧检测（8×8 采样）
+- **按键捕获（防吞字设计）**：`CGEventTap` 事件回调里绝不做慢操作，AX 全部走后台队列；触发修饰键松开后非导航键一律放行并关面板；窗口操作键必须按住 ⌥ 才生效；tap 被系统禁用时自动恢复
+- **窗口枚举**：AX API + `_AXUIElementGetWindow` 映射 CGWindowID（0.35s 消息超时）；幽灵窗口规则（AXDesktop 子角色 + layer0 缺失即丢弃）
+- **私有 API 隔离**：SkyLight 符号全部经 dlopen+dlsym 惰性绑定（SwiftPM 不链接私有框架，直接引用会在启动时崩溃），失败自动降级到公开 API 路径
 
 ## 已知限制
 
-- macOS 出于安全设计，**其他 Space（全屏桌面）里的窗口不参与枚举**——这是 API 级限制，AltTab 也一样；切换到对应 Space 后即可看到
-- 浏览器的多个标签页在系统层面是同一个窗口，切换器里也显示为一个窗口
-- `CGWindowListCreateImage` 自 macOS 14 起被 Apple 标记弃用（目前仍可用）；若未来被移除，只需替换 `WindowCapture.rawImage(cgID:)` 为 ScreenCaptureKit 实现，其余代码不受影响
-- macOS 15+ 会周期性提醒后台使用屏幕录制的 App，属系统行为，可在提醒里关闭月度提醒
-- 驻留屏幕外太久、从未被渲染的窗口，其内容会被系统清出缓存，此时缩略图显示为应用图标占位（系统限制，无法强制恢复）
+- 标签页拆分下，每个标签卡片的缩略图都是"当前激活标签"的画面（系统只渲染当前标签）
+- Space 过滤依赖 SkyLight 私有查询，若未来系统移除相关符号会自动退化为显示全部 Space
+- `CGWindowListCreateImage` 已被 Apple 弃用（目前仍可用），仅作最后兜底
+- macOS 15+ 会周期性提醒后台使用屏幕录制的 App，属系统行为
+- 驻留屏幕外太久、从未被渲染的窗口，其内容会被系统清出缓存，此时缩略图显示为应用图标占位
 
 ## 诊断模式
-
-排查窗口枚举/截图问题时可用：
 
 ```bash
 ./OpenAltTab.app/Contents/MacOS/OpenAltTab --dump-windows
 ```
 
 输出写到 `/tmp/openalttab_dump.txt`（CGWindowList、AX 枚举、CG vs ScreenCaptureKit 截图对比），截图样本存到 `/tmp/oat_*.png`。
+
+## 文档
+
+- [HANDOFF.md](HANDOFF.md)——开发交接：架构、踩坑教训、待办、提交约定
+- [docs/对比分析.md](docs/对比分析.md)——与上游 alt-tab-macos 的逐项对比、Pro 付费墙清单、技术借鉴点
 
 ## License
 
