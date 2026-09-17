@@ -33,6 +33,44 @@ enum Key {
     static let digits: [Int64] = [one, two, three, four, five, six, seven, eight, nine, zero]
 }
 
+/// 通用触发键定义："⌃⌥Tab" 之类的规格串 → 修饰键 + 键码。
+/// ⌘ 保留给系统切换器（规格含 ⌘ 视为无效）；⇧ 只用于反向循环，不参与匹配
+struct TriggerSpec: Equatable {
+    let option: Bool
+    let control: Bool
+    let key: Int64
+
+    static func parse(_ raw: String) -> TriggerSpec? {
+        var option = false
+        var control = false
+        var rest = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        while let first = rest.first, "⌃⌥⇧⌘".contains(first) {
+            switch first {
+            case "⌃": control = true
+            case "⌥": option = true
+            case "⌘": return nil
+            default: break
+            }
+            rest.removeFirst()
+        }
+        guard option || control else { return nil }
+        let key: Int64
+        switch rest.lowercased() {
+        case "tab": key = Key.tab
+        case "space", "空格": key = Key.space
+        case "`", "backquote": key = 50
+        default: return nil
+        }
+        return TriggerSpec(option: option, control: control, key: key)
+    }
+
+    /// 按逗号/分号/空格拆分批量解析
+    static func parseAll(_ raw: String) -> [TriggerSpec] {
+        raw.split(whereSeparator: { ",，;； ".contains($0) })
+            .compactMap { parse(String($0)) }
+    }
+}
+
 /// 搜索输入：从按键事件取可打印字符。
 /// 在事件副本上清掉 ⌘⌃⌥ 再取 Unicode——面板开着时 ⌥ 一直按着，
 /// 直接取会把每个字母变成组合特殊字符（å œ Æ …）

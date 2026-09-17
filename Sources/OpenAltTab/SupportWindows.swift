@@ -241,6 +241,12 @@ final class PrefsWindow {
                                     target: self, action: #selector(ctrlTabChanged(_:)))
         ctrlTabCheck.state = settings.enableCtrlTab ? .on : .off
 
+        let extraField = NSTextField(string: AppSettings.shared.extraShortcutsRaw)
+        extraField.placeholderString = "如 ^⌥Tab, ⌥`（逗号分隔，⌘ 保留给系统）"
+        extraField.target = self
+        extraField.action = #selector(extraShortcutsChanged(_:))
+        extraField.font = NSFont.systemFont(ofSize: 12)
+
         let orderPopup = NSPopUpButton()
         ["最近聚焦优先", "按名称排序"].forEach { orderPopup.addItem(withTitle: $0) }
         orderPopup.selectItem(at: settings.windowOrder.index)
@@ -299,6 +305,7 @@ final class PrefsWindow {
         grid.addRow(with: [NSGridCell.emptyContentView, ignoredRow])
         grid.addRow(with: [label("松开 ⌥ 时"), releasePopup])
         grid.addRow(with: [label("第二快捷键"), ctrlTabCheck])
+        grid.addRow(with: [label("额外触发键"), extraField])
         grid.addRow(with: [label("快捷键"), shortcuts])
         grid.column(at: 0).xPlacement = .trailing
 
@@ -399,6 +406,10 @@ final class PrefsWindow {
 
     @objc private func ctrlTabChanged(_ sender: NSButton) {
         AppSettings.shared.enableCtrlTab = sender.state == .on
+    }
+
+    @objc private func extraShortcutsChanged(_ sender: NSTextField) {
+        AppSettings.shared.extraShortcutsRaw = sender.stringValue
     }
 
     @objc private func windowOrderChanged(_ sender: NSPopUpButton) {

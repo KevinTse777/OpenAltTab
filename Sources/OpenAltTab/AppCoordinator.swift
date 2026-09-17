@@ -24,8 +24,18 @@ final class AppCoordinator {
     private var lastOptionHeld = false
     /// 最近一次看到的 ⌃ 按键状态（^Tab 触发组用）
     private var lastControlHeld = false
-    /// 当前面板由哪组快捷键触发：false = ⌥Tab，true = ^Tab（决定松开哪个键时执行松开行为）
-    private var triggeredByCtrlTab = false
+    /// 当前面板由哪组触发键呼出：决定松开哪些修饰键时执行松开行为
+    private var releaseWatch = (option: true, control: false)
+
+    /// 生效的触发键列表：内置 ⌥Tab + 可选 ^Tab + 任意数量的自定义组合
+    private func triggers() -> [TriggerSpec] {
+        var list = [TriggerSpec(option: true, control: false, key: Key.tab)]
+        if AppSettings.shared.enableCtrlTab {
+            list.append(TriggerSpec(option: false, control: true, key: Key.tab))
+        }
+        list.append(contentsOf: TriggerSpec.parseAll(AppSettings.shared.extraShortcutsRaw))
+        return list
+    }
     /// 搜索模式（/ 进入）：字母数字追加查询，过滤 items
     private var searchMode = false
     private var query = ""
@@ -107,9 +117,10 @@ final class AppCoordinator {
 
         switch type {
         case .flagsChanged:
-            // 松开触发键 = 执行松开行为（立即切换 / 保持面板 / 进入搜索）
+            // 松开触发修饰键 = 执行松开行为（立即切换 / 保持面板 / 进入搜索）
             if visible {
-                let released = triggeredByCtrlTab ? !hasControl : !hasOption
+                let released = (!releaseWatch.option || !hasOption)
+                    && (!releaseWatch.control || !hasControl)
                 if released {
                     switch AppSettings.shared.releaseAction {
                     case .focus:
@@ -129,14 +140,12 @@ final class AppCoordinator {
                                             hasOption: hasOption, hasCommand: hasCommand,
                                             hasShift: hasShift)
             }
-            if code == Key.tab && !hasCommand {
-                let useOption = hasOption
-                let useControl = !hasOption && hasControl && AppSettings.shared.enableCtrlTab
-                if useOption || useControl {
-                    triggeredByCtrlTab = useControl
-                    triggerOverlay(reverse: hasShift)
-                    return nil // 吞掉触发键，避免系统"叮"声
-                }
+            if !hasCommand, let t = triggers().first(where: {
+                $0.key == code && hasOption == $0.option && hasControl == $0.control
+            }) {
+                releaseWatch = (option: t.option, control: t.control)
+                triggerOverlay(reverse: hasShift)
+                return nil // 吞掉触发键，避免系统"叮"声
             }
 
         case .keyUp:
@@ -309,8 +318,9 @@ final class AppCoordinator {
         // 之后它被台前调度收起时就有干净的缓存可显示
         captureFrontWindowNow(items: allItems)
 
-        // ⌥ 已经松开（快速轻点 ⌥Tab）：不弹面板，直接切换
-        let triggerStillHeld = triggeredByCtrlTab ? lastControlHeld : lastOptionHeld
+        // 触发修饰键已经松开（快速轻点）：不弹面板，直接切换
+        let triggerStillHeld = (releaseWatch.option && lastOptionHeld)
+            || (releaseWatch.control && lastControlHeld)
         if !triggerStillHeld {
             commitNow(allItems[selection])
             return
@@ -454,7 +464,7 @@ final class AppCoordinator {
         guard visible else { return }
         visible = false
         pendingCycles = 0
-        triggeredByCtrlTab = false
+        releaseWatch = (option: true, control: false)
         panel.grid.generation += 1 // 丢弃仍在路上的截图回调
         panel.dismissPanel()
         PreviewPanel.shared.hide()

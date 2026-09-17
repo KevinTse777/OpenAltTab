@@ -173,6 +173,12 @@ final class AppSettings {
         set { d.set(newValue, forKey: "enableCtrlTab"); notify() }
     }
 
+    /// 额外触发键规格串（逗号分隔，如 "^⌥Tab,⌥`"），组数不限（上游最多 9 组）
+    var extraShortcutsRaw: String {
+        get { d.string(forKey: "extraShortcutsRaw") ?? "" }
+        set { d.set(newValue, forKey: "extraShortcutsRaw"); notify() }
+    }
+
     var windowOrder: WindowOrder {
         get { WindowOrder(rawValue: d.string(forKey: "windowOrder") ?? "") ?? .recentlyFocused }
         set { d.set(newValue.rawValue, forKey: "windowOrder"); notify() }
