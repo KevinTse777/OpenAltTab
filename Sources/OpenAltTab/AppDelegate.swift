@@ -118,10 +118,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showAbout(_ sender: Any?) {
         activateOurApp()
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-"
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: "OpenAltTab",
-            .applicationVersion: "1.0.0",
-            .version: "1.0.0",
+            .applicationVersion: version,
+            .version: version,
             .credits: NSAttributedString(string: "Windows 风格 ⌥Tab 窗口切换器\n参考 AltTab (alt-tab.xyz) 自研实现，全部功能免费"),
         ])
     }

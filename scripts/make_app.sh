@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP_NAME="OpenAltTab"
+VERSION="1.1.0"
 APP="$APP_NAME.app"
 
 swift build -c release
@@ -18,7 +19,7 @@ if [ ! -f ".build/icon/AppIcon.icns" ]; then
 fi
 cp ".build/icon/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -26,8 +27,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleName</key><string>OpenAltTab</string>
     <key>CFBundleDisplayName</key><string>OpenAltTab</string>
     <key>CFBundleIdentifier</key><string>com.openalttab.macos</string>
-    <key>CFBundleVersion</key><string>1.0.0</string>
-    <key>CFBundleShortVersionString</key><string>1.0.0</string>
+    <key>CFBundleVersion</key><string>$VERSION</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleExecutable</key><string>OpenAltTab</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
