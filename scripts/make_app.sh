@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP_NAME="OpenAltTab"
-VERSION="1.1.0"
+VERSION="1.2.0"
 APP="$APP_NAME.app"
 
 swift build -c release
