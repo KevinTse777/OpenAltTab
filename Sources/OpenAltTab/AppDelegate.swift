@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var watchdogTimer: Timer?
     /// 启动后的首次自动注册只执行一次：巡检再次弹引导窗口时不重复 reset/request
     private var autoRegisterDone = false
+    /// 语言变化检测：切换后重建设置类窗口让新词条生效
+    private var lastLanguage: AppLanguage = AppSettings.shared.language
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppSettings.shared.applyAppearance()
@@ -27,6 +29,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                object: nil, queue: .main) { [weak self] _ in
             AppSettings.shared.applyAppearance()
             self?.coordinator.refreshAppearance()
+            self?.rebuildWindowsIfLanguageChanged()
+        }
+    }
+
+    /// 语言切换后重建已打开的设置类窗口（面板网格文本由下次刷新自然带出）
+    private func rebuildWindowsIfLanguageChanged() {
+        guard AppSettings.shared.language != lastLanguage else { return }
+        lastLanguage = AppSettings.shared.language
+        if let w = permissionsWindow, w.win.isVisible {
+            permissionsWindow = PermissionsWindow()
+            permissionsWindow?.show()
+        } else {
+            permissionsWindow = nil
+        }
+        if let w = prefsWindow, w.win.isVisible {
+            prefsWindow = PrefsWindow()
+            prefsWindow?.show()
+        } else {
+            prefsWindow = nil
         }
     }
 
@@ -155,7 +176,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .applicationName: "OpenAltTab",
             .applicationVersion: version,
             .version: version,
-            .credits: NSAttributedString(string: "Windows 风格 ⌥Tab 窗口切换器\n参考 AltTab (alt-tab.xyz) 自研实现，全部功能免费"),
+            .credits: NSAttributedString(string: L("Windows 风格 ⌥Tab 窗口切换器\n参考 AltTab (alt-tab.xyz) 自研实现，全部功能免费",
+                                                    "A Windows-style ⌥Tab window switcher\nA free alternative to AltTab (alt-tab.xyz)")),
         ])
     }
 
@@ -169,25 +191,26 @@ extension AppDelegate: NSMenuDelegate {
         menu.removeAllItems()
         let axOK = Permissions.accessibilityGranted
         let scrOK = Permissions.screenRecordingGranted
-        let perm = NSMenuItem(title: "辅助功能 \(axOK ? "✅" : "❌")　屏幕录制 \(scrOK ? "✅" : "❌")",
+        let perm = NSMenuItem(title: L("辅助功能 \(axOK ? "✅" : "❌")　屏幕录制 \(scrOK ? "✅" : "❌")",
+                                      "Accessibility \(axOK ? "✅" : "❌")　Screen Recording \(scrOK ? "✅" : "❌")"),
                               action: nil, keyEquivalent: "")
         perm.isEnabled = false
         menu.addItem(perm)
         if !axOK || !scrOK {
-            let grant = NSMenuItem(title: "打开权限设置…",
+            let grant = NSMenuItem(title: L("打开权限设置…", "Open Permission Settings…"),
                                    action: #selector(showPermissions(_:)), keyEquivalent: "")
             menu.addItem(grant)
         }
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "偏好设置…", action: #selector(showPreferences(_:)), keyEquivalent: ","))
-        menu.addItem(NSMenuItem(title: "清除缩略图缓存", action: #selector(clearThumbCache(_:)), keyEquivalent: ""))
-        let login = NSMenuItem(title: "登录时启动",
+        menu.addItem(NSMenuItem(title: L("偏好设置…", "Preferences…"), action: #selector(showPreferences(_:)), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: L("清除缩略图缓存", "Clear Thumbnail Cache"), action: #selector(clearThumbCache(_:)), keyEquivalent: ""))
+        let login = NSMenuItem(title: L("登录时启动", "Launch at Login"),
                                action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
         login.state = launchAtLoginEnabled ? .on : .off
         menu.addItem(login)
-        menu.addItem(NSMenuItem(title: "关于 OpenAltTab", action: #selector(showAbout(_:)), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L("关于 OpenAltTab", "About OpenAltTab"), action: #selector(showAbout(_:)), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "退出 OpenAltTab", action: #selector(quitApp(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: L("退出 OpenAltTab", "Quit OpenAltTab"), action: #selector(quitApp(_:)), keyEquivalent: "q"))
         menu.items.forEach { $0.target = self }
     }
 }

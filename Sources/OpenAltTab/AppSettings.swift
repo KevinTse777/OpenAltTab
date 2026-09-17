@@ -208,6 +208,12 @@ final class AppSettings {
         set { d.set(newValue, forKey: "showAllSpaces"); notify() }
     }
 
+    /// 界面语言
+    var language: AppLanguage {
+        get { AppLanguage(rawValue: d.string(forKey: "language") ?? "") ?? .system }
+        set { d.set(newValue.rawValue, forKey: "language"); notify() }
+    }
+
     var skin: Skin {
         get { Skin(rawValue: d.string(forKey: "skin") ?? "") ?? .macOSSkin }
         set { d.set(newValue.rawValue, forKey: "skin"); notify() }

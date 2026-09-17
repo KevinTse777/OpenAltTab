@@ -216,7 +216,7 @@ final class SwitcherGridView: NSView {
 
         // 空态：无窗口 / 搜索无匹配
         if items.isEmpty {
-            let text = searchLine == nil ? "没有可切换的窗口" : "无匹配窗口"
+            let text = searchLine == nil ? L("没有可切换的窗口", "No windows to switch") : L("无匹配窗口", "No matches")
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 13),
                 .foregroundColor: NSColor.secondaryLabelColor,

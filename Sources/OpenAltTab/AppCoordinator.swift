@@ -356,7 +356,7 @@ final class AppCoordinator {
 
     private func searchLineText() -> String? {
         guard searchMode else { return nil }
-        return "搜索: \(query)　\(items.count)/\(allItems.count)"
+        return L("搜索: ", "Search: ") + "\(query)　\(items.count)/\(allItems.count)"
     }
 
     /// 立即补拍当前前台应用的主窗口
