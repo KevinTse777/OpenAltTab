@@ -200,6 +200,16 @@ final class PrefsWindow {
                                     target: self, action: #selector(ctrlTabChanged(_:)))
         ctrlTabCheck.state = settings.enableCtrlTab ? .on : .off
 
+        let orderPopup = NSPopUpButton()
+        ["最近聚焦优先", "按名称排序"].forEach { orderPopup.addItem(withTitle: $0) }
+        orderPopup.selectItem(at: settings.windowOrder.index)
+        orderPopup.target = self
+        orderPopup.action = #selector(windowOrderChanged(_:))
+
+        let hiddenCheck = NSButton(checkboxWithTitle: "显示已隐藏应用（⌘H）的窗口",
+                                   target: self, action: #selector(hiddenAppsChanged(_:)))
+        hiddenCheck.state = settings.showHiddenApps ? .on : .off
+
         let shortcuts = NSTextField(wrappingLabelWithString: """
         ⌥ Tab 按住打开切换器并循环，松开 ⌥ 确认切换
         Tab / Shift+Tab / ← → ↑ ↓ 选择窗口　　数字键 1–9 直选
@@ -215,6 +225,8 @@ final class PrefsWindow {
         grid.addRow(with: [label("卡片大小"), sizePopup])
         grid.addRow(with: [label("外观"), themePopup])
         grid.addRow(with: [label("显示范围"), scopePopup])
+        grid.addRow(with: [label("窗口排序"), orderPopup])
+        grid.addRow(with: [label("隐藏应用"), hiddenCheck])
         grid.addRow(with: [label("面板位置"), screenPopup])
         grid.addRow(with: [label("图标大小"), iconPopup])
         grid.addRow(with: [label("标题字号"), fontPopup])
@@ -283,5 +295,13 @@ final class PrefsWindow {
 
     @objc private func ctrlTabChanged(_ sender: NSButton) {
         AppSettings.shared.enableCtrlTab = sender.state == .on
+    }
+
+    @objc private func windowOrderChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.windowOrder = WindowOrder.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func hiddenAppsChanged(_ sender: NSButton) {
+        AppSettings.shared.showHiddenApps = sender.state == .on
     }
 }

@@ -106,6 +106,7 @@ enum WindowEnumerator {
         var result: [WindowItem] = []
         result.reserveCapacity(24)
         for app in apps {
+            if !settings.showHiddenApps && app.isHidden { continue }
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             // 单个应用无响应时最多阻塞 0.35s，避免卡住整个切换器
             AXUIElementSetMessagingTimeout(axApp, 0.35)
@@ -118,6 +119,13 @@ enum WindowEnumerator {
                     result.append(item)
                     if result.count >= AppSettings.maxItems { return result }
                 }
+            }
+        }
+        if settings.windowOrder == .alphabetical {
+            result.sort { a, b in
+                let an = a.appName.lowercased(), bn = b.appName.lowercased()
+                if an != bn { return an < bn }
+                return a.title.lowercased() < b.title.lowercased()
             }
         }
         return result

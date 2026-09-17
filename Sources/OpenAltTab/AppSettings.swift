@@ -43,6 +43,14 @@ enum PanelScreen: String, CaseIterable {
     var index: Int { PanelScreen.allCases.firstIndex(of: self)! }
 }
 
+/// 窗口列表排序
+enum WindowOrder: String, CaseIterable {
+    case recentlyFocused
+    case alphabetical
+
+    var index: Int { WindowOrder.allCases.firstIndex(of: self)! }
+}
+
 /// 松开触发键（⌥ 或 ^）的行为
 enum ReleaseAction: String, CaseIterable {
     case focus   // 立即切换（经典 ⌥Tab 体验）
@@ -135,6 +143,17 @@ final class AppSettings {
     var enableCtrlTab: Bool {
         get { d.object(forKey: "enableCtrlTab") == nil ? false : d.bool(forKey: "enableCtrlTab") }
         set { d.set(newValue, forKey: "enableCtrlTab"); notify() }
+    }
+
+    var windowOrder: WindowOrder {
+        get { WindowOrder(rawValue: d.string(forKey: "windowOrder") ?? "") ?? .recentlyFocused }
+        set { d.set(newValue.rawValue, forKey: "windowOrder"); notify() }
+    }
+
+    /// 隐藏中的应用（⌘H）是否出现在列表里
+    var showHiddenApps: Bool {
+        get { d.object(forKey: "showHiddenApps") == nil ? true : d.bool(forKey: "showHiddenApps") }
+        set { d.set(newValue, forKey: "showHiddenApps"); notify() }
     }
 
     var showMinimized: Bool {
