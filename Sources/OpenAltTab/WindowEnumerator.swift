@@ -107,6 +107,7 @@ enum WindowEnumerator {
         result.reserveCapacity(24)
         for app in apps {
             if !settings.showHiddenApps && app.isHidden { continue }
+            if let bid = app.bundleIdentifier, settings.ignoredApps.contains(bid) { continue }
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             // 单个应用无响应时最多阻塞 0.35s，避免卡住整个切换器
             AXUIElementSetMessagingTimeout(axApp, 0.35)

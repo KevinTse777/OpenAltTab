@@ -137,6 +137,8 @@ final class PermissionsWindow {
 /// 偏好设置窗口
 final class PrefsWindow {
     let win: NSWindow
+    private weak var ignorePopup: NSPopUpButton?
+    private var ignoredListLabel: NSTextField?
 
     init() {
         win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 360),
@@ -172,6 +174,29 @@ final class PrefsWindow {
         let previewCheck = NSButton(checkboxWithTitle: "循环时在目标窗口位置显示大图预览",
                                     target: self, action: #selector(previewChanged(_:)))
         previewCheck.state = settings.previewSelectedWindow ? .on : .off
+
+        // 忽略应用例外：从运行中的应用列表选择加入
+        let ignoreAppPopup = NSPopUpButton()
+        ignoreAppPopup.addItem(withTitle: "选择要忽略的应用…")
+        NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap { $0.localizedName }
+            .sorted()
+            .forEach { ignoreAppPopup.addItem(withTitle: $0) }
+        ignorePopup = ignoreAppPopup
+        let addIgnoreBtn = NSButton(title: "忽略", target: self, action: #selector(addIgnoredApp(_:)))
+        addIgnoreBtn.bezelStyle = .rounded
+        let ignoredList = NSTextField(wrappingLabelWithString: "当前忽略：\(settings.ignoredApps.joined(separator: "、"))")
+        ignoredList.font = NSFont.systemFont(ofSize: 11)
+        ignoredList.textColor = .secondaryLabelColor
+        ignoredListLabel = ignoredList
+        let clearIgnoreBtn = NSButton(title: "全部恢复", target: self, action: #selector(clearIgnoredApps(_:)))
+        clearIgnoreBtn.bezelStyle = .rounded
+        clearIgnoreBtn.controlSize = .small
+        let ignoreRow = NSStackView(views: [ignoreAppPopup, addIgnoreBtn])
+        ignoreRow.orientation = .horizontal
+        let ignoredRow = NSStackView(views: [ignoredList, clearIgnoreBtn])
+        ignoredRow.orientation = .horizontal
 
         let scopePopup = NSPopUpButton()
         ["所有应用", "仅前台应用"].forEach { scopePopup.addItem(withTitle: $0) }
@@ -251,6 +276,8 @@ final class PrefsWindow {
         grid.addRow(with: [label("标题字号"), fontPopup])
         grid.addRow(with: [label("最大行数"), rowsPopup])
         grid.addRow(with: [label("最小化"), minCheck])
+        grid.addRow(with: [label("忽略应用"), ignoreRow])
+        grid.addRow(with: [NSGridCell.emptyContentView, ignoredRow])
         grid.addRow(with: [label("松开 ⌥ 时"), releasePopup])
         grid.addRow(with: [label("第二快捷键"), ctrlTabCheck])
         grid.addRow(with: [label("快捷键"), shortcuts])
@@ -293,6 +320,29 @@ final class PrefsWindow {
 
     @objc private func previewChanged(_ sender: NSButton) {
         AppSettings.shared.previewSelectedWindow = sender.state == .on
+    }
+
+    @objc private func addIgnoredApp(_ sender: NSButton) {
+        guard let popup = ignorePopup, popup.indexOfSelectedItem > 0,
+              let name = popup.titleOfSelectedItem else { NSSound.beep(); return }
+        if let app = NSWorkspace.shared.runningApplications.first(where: {
+            $0.localizedName == name && $0.activationPolicy == .regular
+        }), let bid = app.bundleIdentifier {
+            var list = AppSettings.shared.ignoredApps
+            if !list.contains(bid) { list.append(bid) }
+            AppSettings.shared.ignoredApps = list
+            refreshIgnoredList()
+        }
+    }
+
+    @objc private func clearIgnoredApps(_ sender: NSButton) {
+        AppSettings.shared.ignoredApps = []
+        refreshIgnoredList()
+    }
+
+    private func refreshIgnoredList() {
+        ignoredListLabel?.stringValue = "当前忽略：\(AppSettings.shared.ignoredApps.joined(separator: "、"))"
+        ignoredListLabel?.textColor = .secondaryLabelColor
     }
 
     @objc private func scopeChanged(_ sender: NSPopUpButton) {

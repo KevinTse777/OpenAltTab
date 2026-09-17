@@ -189,6 +189,12 @@ final class AppSettings {
         set { d.set(newValue, forKey: "previewSelectedWindow"); notify() }
     }
 
+    /// 忽略的应用（bundle identifier 列表，对齐上游 Exceptions 的 ignore 项）
+    var ignoredApps: [String] {
+        get { d.stringArray(forKey: "ignoredApps") ?? [] }
+        set { d.set(newValue, forKey: "ignoredApps"); notify() }
+    }
+
     var showMinimized: Bool {
         get { d.object(forKey: "showMinimized") == nil ? true : d.bool(forKey: "showMinimized") }
         set { d.set(newValue, forKey: "showMinimized"); notify() }
