@@ -265,6 +265,10 @@ final class PrefsWindow {
         grid.columnSpacing = 20
         grid.addRow(with: [label("卡片大小"), sizePopup])
         grid.addRow(with: [label("卡片样式"), stylePopup])
+        let autoSizeCheck = NSButton(checkboxWithTitle: "按窗口数量自动调整卡片大小",
+                                     target: self, action: #selector(autoSizeChanged(_:)))
+        autoSizeCheck.state = AppSettings.shared.autoSize ? .on : .off
+        grid.addRow(with: [label("自动尺寸"), autoSizeCheck])
         grid.addRow(with: [label("外观"), themePopup])
         grid.addRow(with: [label("皮肤"), skinPopup])
         grid.addRow(with: [label("大图预览"), previewCheck])
@@ -308,6 +312,10 @@ final class PrefsWindow {
 
     @objc private func cardStyleChanged(_ sender: NSPopUpButton) {
         AppSettings.shared.cardStyle = CardStyle.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func autoSizeChanged(_ sender: NSButton) {
+        AppSettings.shared.autoSize = sender.state == .on
     }
 
     @objc private func themeChanged(_ sender: NSPopUpButton) {

@@ -322,11 +322,22 @@ final class AppCoordinator {
         scheduleThumbnails()
     }
 
+    /// 生效的缩略图尺寸：开自动尺寸时按窗口数分档（大 ≤8 / 中 ≤18 / 其余小）
+    private var effectiveThumbSize: NSSize {
+        let s = AppSettings.shared
+        guard s.autoSize else { return s.cardSize.thumbSize }
+        switch items.count {
+        case ...8: return CardSize.large.thumbSize
+        case ...18: return CardSize.medium.thumbSize
+        default: return CardSize.small.thumbSize
+        }
+    }
+
     /// 按当前 items/搜索状态重建网格并调整面板尺寸（过滤时面板随之缩放）
     private func relayout() {
         let screen = targetScreen()
         let size = panel.grid.update(items: items, selection: selection,
-                                     thumbSize: AppSettings.shared.cardSize.thumbSize,
+                                     thumbSize: effectiveThumbSize,
                                      maxWidth: screen.visibleFrame.width - 40,
                                      searchLine: searchLineText())
         panel.showCentered(on: screen, size: size)
@@ -343,8 +354,7 @@ final class AppCoordinator {
         guard let front = NSWorkspace.shared.frontmostApplication,
               let idx = items.firstIndex(where: { $0.app.processIdentifier == front.processIdentifier }),
               let cgID = items[idx].cgWindowID else { return }
-        let cardSize = AppSettings.shared.cardSize.thumbSize
-        WindowCapture.refresh(cgID: cgID, cardSize: cardSize,
+        WindowCapture.refresh(cgID: cgID, cardSize: effectiveThumbSize,
                               diskKey: items[idx].diskKey, cgFrame: items[idx].cgFrame,
                               axSize: items[idx].screenFrame?.size, delay: 0.05)
     }
@@ -362,7 +372,7 @@ final class AppCoordinator {
 
     private func scheduleThumbnails() {
         let gen = panel.grid.generation
-        let cardSize = AppSettings.shared.cardSize.thumbSize
+        let cardSize = effectiveThumbSize
         for item in items {
             guard let cgID = item.cgWindowID else { continue }
             if let hit = WindowCapture.cached(cgID: cgID) {

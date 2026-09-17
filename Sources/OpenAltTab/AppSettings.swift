@@ -124,6 +124,12 @@ final class AppSettings {
         set { d.set(newValue.rawValue, forKey: "cardStyle"); notify() }
     }
 
+    /// 按窗口数量自动调整卡片大小（上游 Pro autoSize 免费版）
+    var autoSize: Bool {
+        get { d.object(forKey: "autoSize") == nil ? false : d.bool(forKey: "autoSize") }
+        set { d.set(newValue, forKey: "autoSize"); notify() }
+    }
+
     var theme: Theme {
         get { Theme(rawValue: d.string(forKey: "theme") ?? "") ?? .auto }
         set { d.set(newValue.rawValue, forKey: "theme"); notify() }
