@@ -275,13 +275,15 @@ final class AppCoordinator {
                               axSize: items[idx].screenFrame?.size, delay: 0.05)
     }
 
+    /// 面板出现的屏幕：按偏好优先取"目标窗口所在屏幕"或"鼠标所在屏幕"，另一边作兜底
     private func targetScreen() -> NSScreen {
-        if selection < items.count, let f = items[selection].screenFrame {
-            if let s = NSScreen.screens.first(where: { NSPointInRect(f.origin, $0.frame) }) { return s }
-        }
-        let mouse = NSEvent.mouseLocation
-        if let s = NSScreen.screens.first(where: { NSPointInRect(mouse, $0.frame) }) { return s }
-        return NSScreen.main ?? NSScreen.screens[0]
+        let targetOfSelection: NSScreen? = {
+            guard selection < items.count, let f = items[selection].screenFrame else { return nil }
+            return NSScreen.screens.first { NSPointInRect(f.origin, $0.frame) }
+        }()
+        let mouseOn: NSScreen? = NSScreen.screens.first { NSPointInRect(NSEvent.mouseLocation, $0.frame) }
+        let preferred = AppSettings.shared.panelScreen == .mouse ? mouseOn : targetOfSelection
+        return preferred ?? mouseOn ?? targetOfSelection ?? NSScreen.main ?? NSScreen.screens[0]
     }
 
     private func scheduleThumbnails() {

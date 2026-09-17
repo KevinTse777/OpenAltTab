@@ -35,6 +35,14 @@ enum Scope: String, CaseIterable {
     var index: Int { Scope.allCases.firstIndex(of: self)! }
 }
 
+/// 面板出现在哪块屏幕
+enum PanelScreen: String, CaseIterable {
+    case targetWindow
+    case mouse
+
+    var index: Int { PanelScreen.allCases.firstIndex(of: self)! }
+}
+
 final class AppSettings {
     static let shared = AppSettings()
     static let changedNotification = Notification.Name("OpenAltTabSettingsChanged")
@@ -55,6 +63,11 @@ final class AppSettings {
     var scope: Scope {
         get { Scope(rawValue: d.string(forKey: "scope") ?? "") ?? .allApps }
         set { d.set(newValue.rawValue, forKey: "scope"); notify() }
+    }
+
+    var panelScreen: PanelScreen {
+        get { PanelScreen(rawValue: d.string(forKey: "panelScreen") ?? "") ?? .targetWindow }
+        set { d.set(newValue.rawValue, forKey: "panelScreen"); notify() }
     }
 
     var showMinimized: Bool {

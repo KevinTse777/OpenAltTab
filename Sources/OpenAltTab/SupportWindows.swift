@@ -163,6 +163,12 @@ final class PrefsWindow {
         scopePopup.target = self
         scopePopup.action = #selector(scopeChanged(_:))
 
+        let screenPopup = NSPopUpButton()
+        ["目标窗口所在屏幕", "鼠标所在屏幕"].forEach { screenPopup.addItem(withTitle: $0) }
+        screenPopup.selectItem(at: settings.panelScreen.index)
+        screenPopup.target = self
+        screenPopup.action = #selector(panelScreenChanged(_:))
+
         let minCheck = NSButton(checkboxWithTitle: "显示已最小化的窗口", target: self, action: #selector(minChanged(_:)))
         minCheck.state = settings.showMinimized ? .on : .off
 
@@ -181,6 +187,7 @@ final class PrefsWindow {
         grid.addRow(with: [label("卡片大小"), sizePopup])
         grid.addRow(with: [label("外观"), themePopup])
         grid.addRow(with: [label("显示范围"), scopePopup])
+        grid.addRow(with: [label("面板位置"), screenPopup])
         grid.addRow(with: [label("最小化"), minCheck])
         grid.addRow(with: [label("快捷键"), shortcuts])
         grid.column(at: 0).xPlacement = .trailing
@@ -213,6 +220,10 @@ final class PrefsWindow {
 
     @objc private func scopeChanged(_ sender: NSPopUpButton) {
         AppSettings.shared.scope = Scope.allCases[sender.indexOfSelectedItem]
+    }
+
+    @objc private func panelScreenChanged(_ sender: NSPopUpButton) {
+        AppSettings.shared.panelScreen = PanelScreen.allCases[sender.indexOfSelectedItem]
     }
 
     @objc private func minChanged(_ sender: NSButton) {
