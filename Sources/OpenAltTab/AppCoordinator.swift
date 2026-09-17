@@ -323,17 +323,21 @@ final class AppCoordinator {
         applyFilter()
     }
 
-    /// 按查询过滤（应用名 + 窗口标题，大小写不敏感），保持原相对顺序；
+    /// 按查询过滤（应用名 + 窗口标题），按相关性降序、同分保持原相对顺序；
     /// 原选中窗口仍在结果里时保持其选中位置
     private func applyFilter() {
         let current = selection < items.count ? items[selection] : nil
         if query.isEmpty {
             items = allItems
         } else {
-            let q = query.lowercased()
-            items = allItems.filter {
-                $0.title.lowercased().contains(q) || $0.appName.lowercased().contains(q)
+            var scored: [(item: WindowItem, score: Double, order: Int)] = []
+            scored.reserveCapacity(allItems.count)
+            for (i, it) in allItems.enumerated() {
+                let s = Search.bestSimilarity(query: query, appName: it.appName, title: it.title)
+                if s > 0 { scored.append((it, s, i)) }
             }
+            scored.sort { a, b in a.score != b.score ? a.score > b.score : a.order < b.order }
+            items = scored.map(\.item)
         }
         selection = current.flatMap { c in items.firstIndex { $0 === c } } ?? 0
         relayout()
