@@ -130,8 +130,8 @@ enum WindowEnumerator {
                 continue
             }
             for axw in axWindows {
-                if let item = describe(app: app, axApp: axApp, axWindow: axw,
-                                       settings: settings, cgFrames: cgFrames) {
+                for item in describe(app: app, axApp: axApp, axWindow: axw,
+                                     settings: settings, cgFrames: cgFrames) {
                     result.append(item)
                     if result.count >= AppSettings.maxItems { return result }
                 }
@@ -179,29 +179,29 @@ enum WindowEnumerator {
 
     private static func describe(app: NSRunningApplication, axApp: AXUIElement,
                                  axWindow: AXUIElement, settings: AppSettings,
-                                 cgFrames: [CGWindowID: CGRect]) -> WindowItem? {
+                                 cgFrames: [CGWindowID: CGRect]) -> [WindowItem] {
         if let subrole = axString(axWindow, kAXSubroleAttribute),
            subrole == kAXSystemDialogSubrole || subrole == kAXSystemFloatingWindowSubrole
            || subrole == "AXDesktop" {
-            return nil
+            return []
         }
         AXUIElementSetMessagingTimeout(axWindow, 0.35)
         let title = axString(axWindow, kAXTitleAttribute) ?? ""
         let minimized = axBool(axWindow, kAXMinimizedAttribute)
         // 与上游一致：直接读 AX 全屏标志；部分应用不响应该属性时按 false 处理
         let fullscreen = axBool(axWindow, "AXFullScreen")
-        if minimized && !settings.showMinimized { return nil }
+        if minimized && !settings.showMinimized { return [] }
 
         let pos = axPoint(axWindow, kAXPositionAttribute)
         let size = axSize(axWindow, kAXSizeAttribute)
-        if let s = size, s.width < 48 || s.height < 32, !minimized { return nil }
+        if let s = size, s.width < 48 || s.height < 32, !minimized { return [] }
 
         var cgID: CGWindowID = 0
         let hasCGID = _AXUIElementGetWindow(axWindow, &cgID) == .success
 
         // 幽灵窗口规则：AX 报告了 CG 编号但 CGWindowList layer 0 里查无此窗 → 不是真实可选窗口。
         // 真实用户窗口必然在 layer 0（最小化和其他 Space 的窗口也在）；访达桌面等系统窗口会在这里漏馅
-        if hasCGID && !minimized && cgFrames[cgID] == nil { return nil }
+        if hasCGID && !minimized && cgFrames[cgID] == nil { return [] }
 
         let screenFrame: CGRect? = {
             guard let p = pos, let s = size, s.width > 0, s.height > 0 else { return nil }
@@ -210,13 +210,27 @@ enum WindowEnumerator {
             return CGRect(x: p.x, y: primaryMaxY - p.y - s.height, width: s.width, height: s.height)
         }()
 
-        guard hasCGID || !title.isEmpty || screenFrame != nil else { return nil }
+        // 浏览器标签页拆分（对齐上游 showTabsAsWindows）：每个标签一张卡片，
+        // 缩略图都是"当前标签"的画面；提交时先 AXPress 目标标签再聚焦窗口
+        if settings.showTabsAsWindows, let tabs = axElements(axWindow, "AXTabs"), tabs.count > 1 {
+            return tabs.map { tab in
+                let tabTitle = (axString(tab, kAXTitleAttribute) ?? title)
+                return WindowItem(app: app, axApp: axApp, axWindow: axWindow,
+                                  cgWindowID: hasCGID ? cgID : nil,
+                                  cgFrame: hasCGID ? cgFrames[cgID] : nil,
+                                  title: tabTitle, isMinimized: false, isFullscreen: fullscreen,
+                                  appHidden: app.isHidden, screenFrame: screenFrame,
+                                  tabElement: tab, isMinimizedBase: minimized)
+            }
+        }
 
-        return WindowItem(app: app, axApp: axApp, axWindow: axWindow,
-                          cgWindowID: hasCGID ? cgID : nil,
-                          cgFrame: hasCGID ? cgFrames[cgID] : nil,
-                          title: title, isMinimized: minimized, isFullscreen: fullscreen,
-                          appHidden: app.isHidden, screenFrame: screenFrame)
+        guard hasCGID || !title.isEmpty || screenFrame != nil else { return [] }
+
+        return [WindowItem(app: app, axApp: axApp, axWindow: axWindow,
+                           cgWindowID: hasCGID ? cgID : nil,
+                           cgFrame: hasCGID ? cgFrames[cgID] : nil,
+                           title: title, isMinimized: minimized, isFullscreen: fullscreen,
+                           appHidden: app.isHidden, screenFrame: screenFrame)]
     }
 
     // MARK: - 前台窗口摘要（CacheWarmer 预热用）
@@ -257,6 +271,12 @@ enum WindowEnumerator {
         var v: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, attr as CFString, &v) == .success else { return nil }
         return v as? String
+    }
+
+    private static func axElements(_ el: AXUIElement, _ attr: String) -> [AXUIElement]? {
+        var v: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, attr as CFString, &v) == .success else { return nil }
+        return v as? [AXUIElement]
     }
 
     private static func axBool(_ el: AXUIElement, _ attr: String) -> Bool {
